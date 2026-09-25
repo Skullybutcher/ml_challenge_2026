@@ -4,4 +4,4 @@
 |---|---|---|---|---|---|---|---|
 | | | | | | | | |
 
-Policy: max 2 unasked (see NIGHT_HANDOFF.md). Record every upload here the moment it happens. If portal access is missing, log READY-TO-SUBMIT rows instead with exact upload steps.
+Policy: Aman uploads — Akari stages READY-TO-SUBMIT rows only (see NIGHT_HANDOFF.md). A later run beating the staged OOF by ≥ 0.003 supersedes it; keep both files.
