@@ -17,3 +17,5 @@ venv/
 .ipynb_checkpoints/
 .DS_Store
 .vscode/
+
+claude_desktop_data_mlChallenge.json
