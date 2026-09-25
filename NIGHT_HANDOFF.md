@@ -26,8 +26,17 @@ LB top to beat: 0.9805. Threshold keeps landing ~0.55-0.65. OOF mildly optimisti
 4. During Run 2 (one ≤50k job allowed): E1 first, then E2/E3.
 5. Morning report for Aman: Run 1 numbers + curve, Run 2 status/progress, experiment results, validator state, exact next decision needed (threshold pick).
 
-## Run 2 pre-authorization (Aman-approved in advance, all must hold)
-- Run 1 recall ≥ 0.95 overall AND India recall measured (any value, but reported — if IN recall < 0.90, flag prominently and still proceed, it informs threshold, not blocking).
-- Run 1 OOF ≥ 0.970 and threshold curve top-8 printed.
-- No code changes since this commit except Aman-approved ones.
-- If ANY gate fails: no Run 2. Report + wait for Aman.
+## Goal (Aman will not intervene — act on this until he asks for status)
+Ship the best-scoring VALID submission before the deadline. Burn at most 2 leaderboard submissions unasked (policy below). With remaining time: keep improving (playbook E1–E6), keep reporting in-repo. Do not wait for Aman at any step — every decision rule is specified here. Status only when he asks.
+
+## Run 2 launch authority (no waiting)
+Launch Run 2 as soon as ALL hold: Run 1 recall ≥ 0.95 overall; India recall reported (any value — if < 0.90, note it, still proceed); Run 1 OOF ≥ 0.970 with top-8 curve printed; no code changes since this commit except Aman-approved ones. If any fail: fix per playbook failure table and re-run Run 1 — still no waiting, just keep cycling until gates pass or Aman's status check.
+
+## Threshold pick (yours, no waiting)
+From Run 1's top-8 curve: pick the HIGHEST t with score ≥ best − 0.001 (plateau-start favors precision under F0.5). If curve is flat/ambiguous, take argmax. Record the pick + curve in SUBMISSIONS.md. Use it for Run 2.
+
+## Submission policy (max 2 unasked)
+- Submission 1: allowed when a full run finishes + validator PASS (default AND --check-ids if feasible) + matching row count exactly 1,732,544. Upload `matching_results.tsv`.
+- Submission 2: allowed only when a later run/model beats the submitted one's OOF by ≥ 0.003 AND passes the same gates.
+- Never a 3rd without Aman's explicit word. Never submit unvalidated/failing files. Log every submission (time, config, threshold, OOF, LB score when known) in SUBMISSIONS.md.
+- If you lack portal access: stage everything submission-ready + write exact upload steps in SUBMISSIONS.md marked READY-TO-SUBMIT, then continue improving (E1–E6) until Aman checks status.
