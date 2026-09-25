@@ -103,11 +103,17 @@ def tune_threshold(
     other_arr = feat_df["other_id"].to_numpy()
 
     best_t, best_score = 0.5, -1.0
+    curve = []
     for t in grid:
         preds = _predictions_at_threshold(s1_arr, other_arr, calibrated_probs, t)
         score = macro_f05(gt, preds, entity_ids=all_s1_ids)
+        curve.append((score, float(t)))
         if score > best_score:
             best_score, best_t = score, t
+    # Threshold curve for plateau-start picking (argmax overfits cal noise).
+    curve.sort(reverse=True)
+    print("Threshold curve (top 8): " +
+          ", ".join(f"t={t:.2f}:{s:.4f}" for s, t in curve[:8]), flush=True)
     return float(best_t), float(best_score)
 
 

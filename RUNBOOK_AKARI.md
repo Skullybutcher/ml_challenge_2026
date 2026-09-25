@@ -16,7 +16,11 @@ $DATA = "<DATA>"   # <-- the ONLY path to set, e.g. D:\data\dataset
 $SRC  = "code/business_entity_resolution/src"
 ```
 
-CPU-only. 64GB RAM removes all memory constraints seen on 16GB (peaks were ≤8.3GB at 50k). No GPU needed. Run one job at a time.
+CPU-only. 64GB RAM removes all memory constraints seen on 16GB (peaks were ≤8.3GB at 50k). No GPU needed. Run one job at a time. Precheck (need ≥40GB free where outputs go):
+
+```powershell
+Get-PSDrive D, C | Select-Object Name, @{N="FreeGB";E={[math]::Round($_.Free/1e9,1)}}
+```
 
 ## 1. Run 1 — validation (~30-60 min). REPORT, then WAIT for Aman's go.
 
