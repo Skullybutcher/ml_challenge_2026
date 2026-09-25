@@ -142,6 +142,42 @@ def generate_candidates_token(s1_df, other_df, min_len: int = 4, max_df: int = 3
     return shared_counts
 
 
+def generate_candidates_rare(s1_df, other_df, min_len: int = 6, max_df: int = 300,
+                             max_df_long: int = 2000) -> Dict[str, Set[str]]:
+    """Long-token rescue channel (F6a): pairs sharing a LONG token that the
+    main channel dropped for crossing the absolute max_df cap.
+
+    As the pool densifies, legitimate shared words (surnames, keywords like
+    'general') cross fixed caps and their pairs vanish. Tokens with
+    max_df < df <= max_df_long on either side (and <= max_df_long on both)
+    are common enough to have been dropped but rare enough to matter.
+    Short/common tokens are excluded by construction (min_len + upper cap),
+    so this cannot merge-explode: worst case ~= main-channel cost."""
+    for df in (s1_df, other_df):
+        if "_norm_name" not in df.columns:
+            df["_norm_name"] = df["business_name"].map(normalize_name)
+            df["_norm_addr"] = df["business_address"].map(normalize_address)
+    s1_tok = _token_frame(s1_df, min_len)
+    other_tok = _token_frame(other_df, min_len)
+    if len(s1_tok) == 0 or len(other_tok) == 0:
+        return {}
+    s1_counts = s1_tok["token"].value_counts()
+    other_counts = other_tok["token"].value_counts()
+    in_band = {tok for tok in set(s1_counts.index) | set(other_counts.index)
+               if (s1_counts.get(tok, 0) > max_df or other_counts.get(tok, 0) > max_df)
+               and s1_counts.get(tok, 0) <= max_df_long
+               and other_counts.get(tok, 0) <= max_df_long}
+    if not in_band:
+        return {}
+    s1_keep = s1_tok[s1_tok["token"].isin(in_band)]
+    other_keep = other_tok[other_tok["token"].isin(in_band)]
+    merged = s1_keep.merge(other_keep, on="token", suffixes=("_s1", "_other"))
+    pairs = merged[["entity_id_s1", "entity_id_other"]].drop_duplicates()
+    if len(pairs) == 0:
+        return {}
+    return pairs.groupby("entity_id_s1")["entity_id_other"].apply(set).to_dict()
+
+
 def generate_candidates_prefix(s1_df, other_df, prefix_len: int = 4,
                                max_pairs_per_key: int = 200_000) -> Dict[str, Set[str]]:
     """Cheap (country, name-prefix) channel. Caps on count_s1*count_other per bucket."""

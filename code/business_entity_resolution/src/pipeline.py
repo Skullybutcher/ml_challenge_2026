@@ -31,7 +31,8 @@ import pandas as pd
 from io_utils import load_source, load_ground_truth, validate_ground_truth_refs, write_result_tsv
 from normalize import normalize_name, normalize_address
 from blocking import (generate_candidates, generate_candidates_token,
-                      generate_candidates_prefix, union_candidates)
+                      generate_candidates_prefix, generate_candidates_rare,
+                      union_candidates)
 
 
 def cap_candidates_per_s1(cand_s2: Dict[str, Set[str]], cand_s3: Dict[str, Set[str]],
@@ -242,7 +243,7 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         max_pairs_per_prefix_key: int = 200_000, neg_per_pos_cap: int = 15,
         use_tfidf: bool = False, test_chunk_size: int | None = 100_000,
         train_chunk_size: int | None = 5000, skip_test: bool = False,
-        max_pairs_per_s1: int = 0) -> None:
+        max_pairs_per_s1: int = 0, use_rare: bool = False) -> None:
     os.makedirs(out_dir, exist_ok=True)
     rss = PeakRSSSampler(interval=30.0)
     rss.start()
@@ -301,6 +302,11 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
             token_sets[s1_id] = set(grp["entity_id_other"].to_numpy())
         prefix_sets = generate_candidates_prefix(s1, other, prefix_len=prefix_len,
                                                  max_pairs_per_key=max_pairs_per_prefix_key)
+        if use_rare:
+            rare_sets = generate_candidates_rare(s1, other, max_df=max_df)
+            if return_counts:
+                return union_candidates(token_sets, prefix_sets, rare_sets), token_c
+            return union_candidates(token_sets, prefix_sets, rare_sets)
         if return_counts:
             return union_candidates(token_sets, prefix_sets), token_c
         return union_candidates(token_sets, prefix_sets)
@@ -532,6 +538,8 @@ def main():
                          "pairs survive ties) and keep top-N; 0 = no cap (default)")
     ap.add_argument("--skip-test", action="store_true",
                     help="skip test load + inference/outputs (steps 8-9); for sample runs")
+    ap.add_argument("--use-rare", action="store_true",
+                    help="add long-token rescue channel (F6a) to blocking; off by default")
     ap.add_argument("--validate", action="store_true",
                     help="also run utils/validate_submission.py if found alongside --data-dir")
     args = ap.parse_args()
@@ -543,7 +551,8 @@ def main():
         test_chunk_size=(args.test_chunk_size or None),
         train_chunk_size=(args.train_chunk_size or None),
         skip_test=args.skip_test,
-        max_pairs_per_s1=args.max_pairs_per_s1)
+        max_pairs_per_s1=args.max_pairs_per_s1,
+        use_rare=args.use_rare)
 
     if args.validate:
         validator = os.path.join(args.data_dir, "utils", "validate_submission.py")
