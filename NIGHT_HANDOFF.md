@@ -35,8 +35,6 @@ Launch Run 2 as soon as ALL hold: Run 1 recall ≥ 0.95 overall; India recall re
 ## Threshold pick (yours, no waiting)
 From Run 1's top-8 curve: pick the HIGHEST t with score ≥ best − 0.001 (plateau-start favors precision under F0.5). If curve is flat/ambiguous, take argmax. Record the pick + curve in SUBMISSIONS.md. Use it for Run 2.
 
-## Submission policy (max 2 unasked)
-- Submission 1: allowed when a full run finishes + validator PASS (default AND --check-ids if feasible) + matching row count exactly 1,732,544. Upload `matching_results.tsv`.
-- Submission 2: allowed only when a later run/model beats the submitted one's OOF by ≥ 0.003 AND passes the same gates.
-- Never a 3rd without Aman's explicit word. Never submit unvalidated/failing files. Log every submission (time, config, threshold, OOF, LB score when known) in SUBMISSIONS.md.
-- If you lack portal access: stage everything submission-ready + write exact upload steps in SUBMISSIONS.md marked READY-TO-SUBMIT, then continue improving (E1–E6) until Aman checks status.
+## Submission policy (Aman submits — Akari never uploads)
+- Akari makes ZERO leaderboard submissions. When a full run finishes + validator PASS (default AND --check-ids if feasible) + matching row count exactly 1,732,544: stage everything submission-ready and log a READY-TO-SUBMIT row in SUBMISSIONS.md with exact upload steps. Then keep improving locally (playbook E1–E6) until Aman checks status.
+- If a later run/model beats the staged one's OOF by ≥ 0.003 with the same gates: it becomes the new staged submission (log supersedes, keep both files). Aman picks what actually uploads.
