@@ -56,7 +56,10 @@ From Run 2 logs/outputs: candidates-per-S1 for FR vs US vs IN; match-rate per co
 **E6 — LightGBM micro-grid (only if 100k OOF < 0.975).**
 `num_leaves 31→63`, `learning_rate 0.05→0.03`, one at a time at 50k. Adopt if OOF +0.002.
 
-**BANNED (do not start):** ensembles, cross-encoders/neural rerankers, dense retrieval, training the matcher on full 2.2M (≈120M rows), per-S1 pair caps (proven: even 500 costs −0.072 recall), portal submissions, touching `metric.py` / writers / GroupKFold grouping.
+**E7 — your own designs (authorized once E1–E6 are done or blocked).**
+You may propose and run experiments beyond this backlog under the same guardrails: sample-scale first (≤50k, or ≤100k only with Aman's word), one variable at a time, `exp/*` branches, adoption bars from §2 (recall ≥ +0.003 or equal-recall speedup ≥ 30%), full numbers report either way. Promising direction if you want one: smarter per-S1 *ranking* (not capping) for the full-run pair budget — the failure was the ranking signal (shared-token count), not the idea of prioritizing.
+
+**BANNED (do not start — reasons, so you can judge edge cases):** ensembles (marginal gain, doubles 1.7M-test inference time, unfixable at 3am if they break); cross-encoders/neural rerankers (need GPU training + license checks + new data plumbing — days of work on a ~36h clock with a 12h run inside it); dense retrieval (same clock math, and sparse recall is already 0.977); training the matcher on full 2.2M (≈120M rows at neg-cap 15 — memory/time blowup for saturated matcher quality); per-S1 pair caps (proven: even 500 costs −0.072 recall); portal submissions; touching `metric.py` / writers / GroupKFold grouping (validated envelope). If you believe a ban is wrong, write the one-paragraph case with numbers and continue with allowed work — Aman adjudicates at status check.
 
 ## 5. Report format (every task ends with this)
 
