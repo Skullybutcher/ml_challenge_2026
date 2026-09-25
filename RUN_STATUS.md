@@ -13,11 +13,12 @@
 | 1 audit | PASS | S1 2206821 / S2 5034616 / S3 5285603; singleton 5.58%; floor F0.5 0.0558 |
 | 2 blocking sample (5k, max-df 300) | PASS | load ~148-183s; block ~4-6s; pairs 2,653,273; recall 0.9920 |
 | 3 sampled train (5k, 3-fold) | PASS | pairs 2.65M → train 272,145 (pos 6.31%); OOF F0.5 0.9844-0.9847 @ t 0.55-0.65; baseline 0.0554 |
-| 4 pipeline (`--sample-s1 50000 --n-splits 3`) | RUNNING, at risk | 31+ min in; CPU 100%+, RAM 100%; last log: building pairwise feature frame |
+| 4 pipeline (`--sample-s1 50000 --n-splits 3`) | STOPPED by user (RAM 100% in featurize) | 31+ min in; CPU 100%+, RAM 100%; last log: building pairwise feature frame |
+| 4b pipeline (`--sample-s1 20000 --max-df 100 --n-splits 3`) | RUNNING | rerun after 50k OOM risk; expect ~1-2h |
 | 5 validate/submit | NOT STARTED | — |
 
 ## Estimate to complete
-- Phase 4 @50k if it survives: ~2.5-4.5h total (featurize dominates). At 100% RAM in featurize, likely `Killed` — rerun `--sample-s1 20000 --max-df 100` (~1-2h).
+- Phase 4b @20k/max-df 100: ~1-2h total (recall expected ~0.97-0.99 given 0.992 headroom at 5k).
 - Phase 5 validator (default, no `--check-ids`): minutes.
 - Full 2.2M run: not attempted; ~1B pairs — requires chunked test inference, 8-16h+. Do only after 50k passes.
 
