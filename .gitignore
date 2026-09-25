@@ -1,0 +1,19 @@
+# Data (1GB+ challenge TSVs — never commit)
+dataset/
+*.tsv
+
+# Generated outputs (large, regenerable)
+output/
+kaggle_code_bundle.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Notebooks / editors
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
