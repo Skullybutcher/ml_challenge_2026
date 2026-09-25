@@ -14,7 +14,8 @@
 | 2 blocking sample (5k, max-df 300) | PASS | load ~148-183s; block ~4-6s; pairs 2,653,273; recall 0.9920 |
 | 3 sampled train (5k, 3-fold) | PASS | pairs 2.65M → train 272,145 (pos 6.31%); OOF F0.5 0.9844-0.9847 @ t 0.55-0.65; baseline 0.0554 |
 | 4 pipeline (`--sample-s1 50000 --n-splits 3`) | STOPPED by user (RAM 100% in featurize) | 31+ min in; CPU 100%+, RAM 100%; last log: building pairwise feature frame |
-| 4b pipeline (`--sample-s1 20000 --max-df 100 --n-splits 3`) | RUNNING | rerun after 50k OOM risk; expect ~1-2h |
+| 4b pipeline (`--sample-s1 20000 --max-df 100 --n-splits 3`) | TRAIN DONE, test inference died | train recall 0.9773, OOF 0.9766 @ t=0.65; test S1=1732544/S2=4887273/S3=5082316; log ends at test blocking — no TSVs written (writes happen at end) |
+| 4c pipeline (same + `--test-chunk-size 100000`) | READY TO RUN | chunked test inference bounds peak RAM; chunk-equivalence verified |
 | 5 validate/submit | NOT STARTED | — |
 
 ## Estimate to complete
