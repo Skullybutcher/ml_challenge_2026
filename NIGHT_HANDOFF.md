@@ -38,3 +38,10 @@ From Run 1's top-8 curve: pick the HIGHEST t with score ≥ best − 0.001 (plat
 ## Submission policy (Aman submits — Akari never uploads)
 - Akari makes ZERO leaderboard submissions. When a full run finishes + validator PASS (default AND --check-ids if feasible) + matching row count exactly 1,732,544: stage everything submission-ready and log a READY-TO-SUBMIT row in SUBMISSIONS.md with exact upload steps. Then keep improving locally (playbook E1–E6) until Aman checks status.
 - If a later run/model beats the staged one's OOF by ≥ 0.003 with the same gates: it becomes the new staged submission (log supersedes, keep both files). Aman picks what actually uploads.
+
+## Update 2026-09-26 AM — Aman's box is OFF, Akari is sole compute
+- Local 16GB machine goes offline now. All local runs stop. Nothing will come from Aman's side until he returns — do not wait for anything local.
+- Included in this commit: (a) `del counted_s2, counted_s3 + gc.collect()` after the recall gate when caps are off — the counted frames (~20GB at 100k-rare) were the 49.5GB blowup, bigger than the asarray conversion; keep your batched-conversion fix too, both stack; (b) `--rare-min-len` / `--rare-max-df` flags (defaults 6 / 2000 = current behavior, validated config untouched).
+- Run 2 band DECIDED: `--rare-max-df 1000` (measured locally at 50k: recall 0.9857 vs 0.9892 full-band, pairs −38%). Default band projects ~4.5B pairs / ~36h at measured test density (~2600/S1 over 2×50k test chunks vs the real 10M pool); band-1000 projects ~2.9B / ~22h. Append the flags to the Run 2 command: `--use-rare --rare-max-df 1000`.
+- Speed is now the binding constraint, not memory or recall. Nominated E-series experiment: batched featurize (rapidfuzz `process.cdist` over pair columns instead of the per-pair Python loop, ~35k pairs/s today) — 3-5× would take the full run to ~6h. Validate by exact-output equality on 5k first, then adopt. This is your highest-value experiment after Run 1.
+- Run 1 (100k, default band) proceeds unchanged — it validates rescue-at-scale + OOF/threshold. The band decision affects Run 2 only.

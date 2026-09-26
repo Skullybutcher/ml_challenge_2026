@@ -243,7 +243,8 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         max_pairs_per_prefix_key: int = 200_000, neg_per_pos_cap: int = 15,
         use_tfidf: bool = False, test_chunk_size: int | None = 100_000,
         train_chunk_size: int | None = 5000, skip_test: bool = False,
-        max_pairs_per_s1: int = 0, use_rare: bool = False) -> None:
+        max_pairs_per_s1: int = 0, use_rare: bool = False,
+        rare_min_len: int = 6, rare_max_df: int = 2000) -> None:
     os.makedirs(out_dir, exist_ok=True)
     rss = PeakRSSSampler(interval=30.0)
     rss.start()
@@ -303,7 +304,9 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         prefix_sets = generate_candidates_prefix(s1, other, prefix_len=prefix_len,
                                                  max_pairs_per_key=max_pairs_per_prefix_key)
         if use_rare:
-            rare_sets = generate_candidates_rare(s1, other, max_df=max_df)
+            rare_sets = generate_candidates_rare(s1, other, max_df=max_df,
+                                                 min_len=rare_min_len,
+                                                 max_df_long=rare_max_df)
             if return_counts:
                 return union_candidates(token_sets, prefix_sets, rare_sets), token_c
             return union_candidates(token_sets, prefix_sets, rare_sets)
@@ -540,6 +543,10 @@ def main():
                     help="skip test load + inference/outputs (steps 8-9); for sample runs")
     ap.add_argument("--use-rare", action="store_true",
                     help="add long-token rescue channel (F6a) to blocking; off by default")
+    ap.add_argument("--rare-min-len", type=int, default=6,
+                    help="min token length for the rescue channel (default 6)")
+    ap.add_argument("--rare-max-df", type=int, default=2000,
+                    help="upper df bound of the rescue band (default 2000)")
     ap.add_argument("--validate", action="store_true",
                     help="also run utils/validate_submission.py if found alongside --data-dir")
     args = ap.parse_args()
@@ -552,7 +559,8 @@ def main():
         train_chunk_size=(args.train_chunk_size or None),
         skip_test=args.skip_test,
         max_pairs_per_s1=args.max_pairs_per_s1,
-        use_rare=args.use_rare)
+        use_rare=args.use_rare, rare_min_len=args.rare_min_len,
+        rare_max_df=args.rare_max_df)
 
     if args.validate:
         validator = os.path.join(args.data_dir, "utils", "validate_submission.py")
