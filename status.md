@@ -395,3 +395,9 @@ The signed HWiNFO 8.52 portable binary was obtained from the SAC mirror linked o
 Train chunks 27 and 28 completed at 01:21:06 and 01:32:47 IST. Chunk 27 produced 7,831,732 candidate pairs and retained 138,555 rows (8,542 positives); chunk 28 produced 7,856,883 candidate pairs and retained 137,315 rows (8,469 positives). Checkpoints `train_chunk_0026.npz` and `train_chunk_0027.npz` are present. Run 1 is healthy at 28/40 chunks (70%); launcher, Python workers, and memory watchdog are alive, and `run_100k.exit` is absent.
 
 At 01:36:12, process-tree RSS was 7.88 GB and system use 24.45 GB. Peaks remain 31.49 GB process tree / 45.66 GB system-wide, below 44/47 GB watchdog limits. The RTX 5070 Ti was 44°C at 4% utilization and 22.33 W. CPU package temperature is still unavailable from a supported active sensor; generic ACPI readings are not used as a proxy. Candidate recall remains 0.9834 overall / 0.9966 US, India n=0 excluded. OOF and the top-8 threshold curve have not printed, so Run 2 gates are still pending. No run changes or leaderboard uploads.
+
+## Run 1 update (2026-09-27, 01:50 IST)
+
+Train chunk 29/40 completed at 01:43:37 IST: 7,647,448 candidate pairs and 137,847 retained rows (8,491 positives). Checkpoint `train_chunk_0028.npz` is present; 29 chunks are complete. The launcher, Python workers, and memory watchdog remain alive, with no `run_100k.exit` marker.
+
+At 01:50:14, process-tree RSS was 7.70 GB and system use was 23.34 GB. Peaks remain 31.49 GB process tree / 45.66 GB system, below the 44/47 GB limits. GPU was 42°C at 4% utilization and 22.34 W. CPU package temperature remains unavailable from a supported active sensor; generic ACPI readings are not a substitute. Candidate recall remains 0.9834 overall / 0.9966 US; India n=0 excluded. OOF and the top-8 threshold curve remain pending, so Run 2 gates are not met. No run changes or leaderboard uploads.
