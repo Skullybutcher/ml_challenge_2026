@@ -4,6 +4,7 @@ Set-Location -LiteralPath $repoRoot
 $pythonPath = (Resolve-Path -LiteralPath (Join-Path $repoRoot '..\venv_py311\Scripts\python.exe')).Path
 $dataPath = (Resolve-Path -LiteralPath (Join-Path $repoRoot '..\dataset')).Path
 $scriptPath = Join-Path $repoRoot 'code\business_entity_resolution\src\pipeline.py'
+$affinityRunner = Join-Path $repoRoot 'utils\run_with_cpu_affinity.py'
 $outPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'out_100k'))
 $logPath = Join-Path $repoRoot 'run_100k.log'
 $exitPath = Join-Path $repoRoot 'run_100k.exit'
@@ -28,7 +29,7 @@ $env:PYTHONFAULTHANDLER = '1'
 # Windows PowerShell treats native stderr as error records. Continue collecting
 # those records so Python's traceback and exit code survive a failed run.
 $ErrorActionPreference = 'Continue'
-& $pythonPath $scriptPath `
+& $pythonPath $affinityRunner --mask 0xffff0000 $scriptPath `
     --data-dir $dataPath `
     --out-dir $outPath `
     --sample-s1 100000 `

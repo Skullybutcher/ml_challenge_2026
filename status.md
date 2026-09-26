@@ -272,3 +272,58 @@ Exact last 20 lines of the failed attempt's combined log:
 The renewed push succeeded. The remote branch is `exp/run1-2500-a467-20260926` in `Skullybutcher/ml_challenge_2026`. Checkpointing and failure recovery are commit `4eecdbd`; the prepared, isolated multiprocessing equality harness is commit `c87374e`. The remote head was verified against local commit `c87374eb51f069c3a89d946e01d341877ed3189e`. The frozen feature branch was not modified. Dataset files, generated chunk archives and runtime logs were not staged.
 
 After confirming that every checkpointed Python source file still has its original content hash, Run 1 was relaunched with the same parameters and hash seed, the corrected native stderr logging and faulthandler. Initial free disk was 92.31 GB and system use 12.83 GB. The new wrapper PID is 30768 and watcher PID 14184; the monitor again enforces 44 GB tree / 47 GB system limits. The existing chunk 1 checkpoint is retained for reuse after startup loading/blocking; this restart has not yet reached OOF. Previous attempt logs are archived locally before reuse of the current log names.
+
+## CPU/runtime investigation after the 16:55 failure
+
+The 16:44 retry restored chunk 1 from the saved checkpoint at 16:50:30, confirming the live resume path, then exited with code 1 at 16:55 in chunk 2. The original batch error was `TypeError: 'cell' object is not subscriptable`; replay logged exact built-in strings for all six inputs and a CPython internal set insertion `SystemError` on pair S1-426427615 / S2-653212516. The tree/system peaks were 31.39/43.91 GB, below watchdog thresholds. OOF and Run 2 have not been reached.
+
+A standalone stdlib-only reproduction (`utils/probe_bigrams_runtime.py`) repeats the original character-bigram expression on literal strings and checks the resulting sets against known expected outputs. It failed with `TypeError: 'int' object is not subscriptable` after 32.2 seconds / 26,434,649 checks without importing pandas, NumPy or RapidFuzz and without reading the dataset. Data fields and those extensions are therefore not necessary for the failure. Windows also recorded WHEA-Logger event 19 at 16:48:57: Processor Core / Corrected Machine Check / Internal parity error / APIC ID 41. The machine reports an Intel i9-14900KS. These observations make hardware/runtime instability the current lead, but do not prove a specific CPU defect or microcode issue.
+
+The playbook has no generic TypeError row. Under the explicit debugging authorization, the response is a bounded runtime/core isolation probe, preserving the original feature definition and withholding an OOF/Run 2 decision until a stable run completes. The first probe pinned to verified efficiency-core logical CPU 16 passed 56,142,000 checks over 120 seconds. This is diagnostic evidence, not certification of the whole machine. No BIOS, firmware, voltage or global power settings have been changed. Windows topology was queried through GetLogicalProcessorInformationEx: performance logical CPUs 0-15; efficiency CPUs 16-31. APIC IDs have not been equated to Windows logical indices.
+
+GPU check: NVIDIA RTX 5070 Ti, 16,303 MiB VRAM. The installed LightGBM 4.7.0 build rejected a two-round toy GPU smoke test with 'GPU Tree Learner was not enabled in this build'. GPU acceleration would apply to later tree training, not the current Python string feature stage.
+
+Exact last 20 lines of the failed pipeline log:
+
+```text
+de\business_entity_resolution\src\features.py", line 140, in build_feature_frame_vectorized
+    batch = [pair_features(x1, y1, z1, x2, y2, z2)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\ml_challenge_2026_a467\co
+de\business_entity_resolution\src\features.py", line 140, in <listcomp>
+    batch = [pair_features(x1, y1, z1, x2, y2, z2)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\ml_challenge_2026_a467\co
+de\business_entity_resolution\src\features.py", line 59, in pair_features
+    _jaccard(_char_bigrams(name1), _char_bigrams(name2)),
+                                   ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\ml_challenge_2026_a467\co
+de\business_entity_resolution\src\features.py", line 27, in _char_bigrams
+    return {s[i:i + 2] for i in range(len(s) - 1)} if len(s) > 1 else set()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\ml_challenge_2026_a467\co
+de\business_entity_resolution\src\features.py", line 27, in <setcomp>
+    return {s[i:i + 2] for i in range(len(s) - 1)} if len(s) > 1 else set()
+            ~^^^^^^^^^
+TypeError: 'cell' object is not subscriptable
+```
+
+
+## Process affinity workaround and GPU findings
+
+The controlled CPU placement comparison produced these results with identical standalone Python code:
+
+| Process CPU selection | Checks | Duration | Result |
+|---|---:|---:|---|
+| Unrestricted | 26,434,649 | 32.2 s | TypeError: int object is not subscriptable |
+| Performance cores, mask 0x0000ffff | 38,409,371 | 46.2 s | TypeError: unsupported operand types for +: NoneType and int |
+| Efficiency core 16, mask 0x00010000 | 56,142,000 | 120 s | All checks passed |
+| Efficiency cores, mask 0xffff0000 | 56,490,000 | 120 s | All checks passed |
+
+On the efficiency cores, all 137,233 saved chunk 1 rows were reconstructed from the original source TSVs and their frozen normalization/feature functions: all 2,058,495 feature values matched the saved float32 values exactly, and all 137,233 labels matched ground truth exactly. The full cache verification took 33.5 seconds. This validates reuse of this checkpoint; passing bounded probes does not establish a permanent hardware repair or diagnose Vmin Shift.
+
+Run 1 restarted at 17:12 local with unchanged data, Python source, training flags and hash seed. `utils/run_with_cpu_affinity.py` sets only the Python process CPU mask before imports; the existing launcher now requests the locally verified E-core mask 0xffff0000. The running interpreter's actual mask was verified as 0xffff0000. Its original checkpoint fingerprint still matches bf9a23743095, so chunk 1 remains reusable. Wrapper/watcher PIDs are 28172/20700. Initial free disk/system use were 92.31/12.66 GB. No model, CV, metric, writer, BIOS, firmware or global power setting was changed. The mask is specific to this host's queried topology and must not be assumed valid on another machine.
+
+The RTX 5070 Ti has 16,303 MiB VRAM, but the installed LightGBM 4.7.0 library rejected a two-round toy GPU check because GPU Tree Learner was not enabled. LightGBM's Windows GPU option uses OpenCL; its CUDA implementation is not supported on Windows. GPU tree training would not accelerate the current Python string feature phase. The prepared multiprocessing feature equality experiment remains pending; no speedup or equality result has been claimed for it.
+
+Primary references: [LightGBM installation guide](https://lightgbm.readthedocs.io/en/stable/Installation-Guide.html), [Microsoft CPU topology fields](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-processor_relationship), [Intel stability guidance](https://www.intel.com/content/www/us/en/support/articles/000102331/processors.html). Hardware instability is an inference from the reproduction, placement comparison and WHEA event; the specific cause is not established.
