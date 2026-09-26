@@ -1,6 +1,6 @@
 # Status — Akari business entity resolution
 
-**Snapshot:** 2026-09-26 09:55 Asia/Kolkata
+**Snapshot:** 2026-09-26 09:58 Asia/Kolkata
 **Repository:** https://github.com/Skullybutcher/ml_challenge_2026
 **Active branch:** `exp/run1-2500-a467-20260926`
 **Base commit:** `a467bb7c79417e084b7e2fbd873191581c6d5a5b`
@@ -20,14 +20,14 @@ Command:
 
 `$DATA` was set once to the extracted dataset root, `..\dataset`, containing `train/` and `test/`. The output drive had 91.9 GB free at the last check (09:55).
 
-Run 1 has completed candidate generation and is in train featurization. Last log evidence at 09:45:04:
+Run 1 has completed candidate generation and is in train featurization. Last log evidence at 09:55:23:
 
 - Candidate pair union: 311,199,888.
 - Overall candidate recall: 0.9834.
 - US recall: 0.9966 (n=60,078).
 - India line: 1.0000 (n=0); this is not a meaningful India estimate because the sampled run has no labeled India examples.
 - Per-S1 candidate count p50=2,813; p99=9,252; max=20,383; mean=3,112.0.
-- Train chunks: 6/40 complete. The six chunks each processed about 7.7–7.9 million raw pairs and took about 10.5 minutes apiece.
+- Train chunks: 7/40 complete. The seven chunks each processed about 7.7–7.9 million raw pairs and took about 10.5 minutes apiece.
 - OOF, threshold curve, peak-RSS final value, and completion time are not available yet.
 
 The active log is [run_100k.log](run_100k.log). A prior 2,500-chunk attempt under Pandas 3 was manually stopped at 48.48 GB RSS during blocking and preserved as [run_100k_attempt2500_pandas3_stopped.log](run_100k_attempt2500_pandas3_stopped.log).
@@ -55,7 +55,7 @@ The frozen branch `feature/chunked-fullrun` has not been modified. Work is on `e
 - `features.py`: retains scalar feature semantics and ordering while converting at most 100,000 rows at a time to float32, with a shape check for each batch.
 - `pipeline.py`: skips the shared-token count-frame path on the uncapped run and releases optional count frames after the cap block.
 
-These two code changes and the current run logs are uncommitted at this snapshot. The status document is being committed separately so the run’s code and log artifacts are not accidentally staged with it. The local branch did not yet have an `origin/exp/run1-2500-a467-20260926` ref at the last check.
+The two source fixes and current run logs remain uncommitted. The status document itself was committed separately as 577120b. The push attempt failed with HTTP 403 for the configured Git identity; no remote exp branch was created.
 
 A code review of the fetched `a467bb7` source found the rare-band flags there. The counted-frame release used by this run is present in the local working-tree fix; it should not be described as already committed unless a fresh `git show` confirms that. The active pipeline has the fix loaded.
 
@@ -91,3 +91,7 @@ The local failed E1/E2 runs exceed the 60M raw-pair adoption bar despite high re
 7. Work E1–E6 only within their playbook rules, with at most one ≤50k job alongside Run 2 and a 48 GB combined memory cap. New E7 designs must meet the same guardrails. Do not use ensembles, neural models, dense retrieval, full-2.2M training, per-S1 caps, or changes to metrics, writer, or CV.
 
 No Run 2, submission validation, threshold staging, leaderboard upload, or completed 5k `cpdist` equality experiment has occurred yet.
+
+## Status document publishing
+
+The local status document commit is 577120b28719f257612c4e17d8e5d04ffbb09c2f. Publishing the exp branch was attempted with git push -u origin exp/run1-2500-a467-20260926. GitHub rejected it with HTTP 403: permission denied to Stakeylock. The branch has no upstream configured and no changes were pushed. The local commit and status.md are ready; publication requires a GitHub identity with write access to this repository.
