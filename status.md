@@ -266,3 +266,9 @@ Exact last 20 lines of the failed attempt's combined log:
 [FEATURES-ERROR] batch=2700000:2800000 total=7,938,205 python=3.11.13 executable=C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\venv_py311\Scripts\python.exe module=C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\ml_challenge_2026_a467\code\business_entity_resolution\src\features.py source_sha256=7bb331e3df894e5cee0fa56d3d7021d1ba013c129d95df0d29ef4cf479b17e6d pair_features_file=C:\Users\JINITANGSU\Documents\Codex\2026-09-26\akari-pull-and-inspect-first-then\work\ml_challenge_2026_a467\code\business_entity_resolution\src\features.py exception=builtins.TypeError: TypeError("'range_iterator' object is not subscriptable")
 [FEATURES-ERROR] batch exception was not reproduced by row-wise replay for rows 2700000:2800000.
 ```
+
+## Git publication succeeded and Run 1 resumed
+
+The renewed push succeeded. The remote branch is `exp/run1-2500-a467-20260926` in `Skullybutcher/ml_challenge_2026`. Checkpointing and failure recovery are commit `4eecdbd`; the prepared, isolated multiprocessing equality harness is commit `c87374e`. The remote head was verified against local commit `c87374eb51f069c3a89d946e01d341877ed3189e`. The frozen feature branch was not modified. Dataset files, generated chunk archives and runtime logs were not staged.
+
+After confirming that every checkpointed Python source file still has its original content hash, Run 1 was relaunched with the same parameters and hash seed, the corrected native stderr logging and faulthandler. Initial free disk was 92.31 GB and system use 12.83 GB. The new wrapper PID is 30768 and watcher PID 14184; the monitor again enforces 44 GB tree / 47 GB system limits. The existing chunk 1 checkpoint is retained for reuse after startup loading/blocking; this restart has not yet reached OOF. Previous attempt logs are archived locally before reuse of the current log names.
