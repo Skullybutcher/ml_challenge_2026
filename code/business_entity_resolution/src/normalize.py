@@ -30,6 +30,14 @@ WS_RE = re.compile(r"\s+")
 
 
 def _base_clean(text: str) -> str:
+    # Boundary coercion: test sources contain NaN/None names+addresses
+    # (NaN float is truthy and has no .lower() -> crash at inference).
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        if isinstance(text, float) and text != text:  # NaN
+            return ""
+        text = str(text)
     if not text:
         return ""
     t = text.lower().strip()
