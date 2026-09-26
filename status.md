@@ -438,3 +438,9 @@ Run 2 launch settings: same dataset and Python 3.11 environment, `PYTHONHASHSEED
 ## Run 2 launch (2026-09-27, 04:09 IST)
 
 Run 2 started on the authorized experiment branch after Run 1 gates passed. Launcher PID 32000; memory watchdog PID 22988; first-test-chunk pair tripwire PID 38256; GPU thermal watchdog PID 30584. Initial log confirms affinity `0xffff0000`, fixed hash seed 42, and a new resumable checkpoint fingerprint `8a332660fb9a`. At the first monitor sample the process tree used 1.25 GB and system memory 15.29 GB; GPU was 42°C. No failure/exit marker is present. Training-source loading has begun; test inference has not yet begun, so the >50M first-test-chunk tripwire remains armed.
+## Run 2 progress (2026-09-27, 04:42 IST)
+
+Training chunks 1-3 completed at 04:28:07, 04:34:00, and 04:39:43. Respectively they contained 3,706,796 / 3,793,193 / 3,636,619 candidate pairs before subsampling and retained 135,311 / 134,877 / 136,080 rows (8,389 / 8,333 / 8,444 positives). Three resumable chunk checkpoints are present; the Run 2 launcher is alive and run_full.exit is absent.
+
+Run 2 candidate recall is 0.9752 overall and 0.9911 for US (n=60,078); India remains n=0 and is excluded. At 04:42, process-tree RSS was 15.08 GB with peak 17.83 GB; system use was 29.12 GB with peak 31.88 GB. GPU was 41°C. The 44/47 GB memory watchdogs and 82°C GPU monitor remain active. No failure, tripwire, or test inference has occurred yet.
+
