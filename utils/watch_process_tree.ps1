@@ -9,10 +9,36 @@ param(
 $ErrorActionPreference = 'Stop'
 $peakTree = 0.0
 $peakSystem = 0.0
+
+function Write-MonitorLine {
+    param([Parameter(Mandatory = $true)][string]$Line)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Line + [Environment]::NewLine)
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        $stream = $null
+        try {
+            $stream = [System.IO.File]::Open(
+                $LogPath,
+                [System.IO.FileMode]::Append,
+                [System.IO.FileAccess]::Write,
+                [System.IO.FileShare]::ReadWrite
+            )
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush()
+            return $true
+        } catch [System.IO.IOException] {
+            if ($attempt -lt 9) { Start-Sleep -Milliseconds 100 }
+        } finally {
+            if ($null -ne $stream) { $stream.Dispose() }
+        }
+    }
+    # A transient monitor-log lock must not stop the training process.
+    return $false
+}
+
 if ($TreeLimitGB -le 0 -or $SystemLimitGB -le 0 -or $IntervalSeconds -le 0) {
     throw 'Memory limits and polling interval must be positive.'
 }
-Add-Content -LiteralPath $LogPath -Value "watch start root=$RootProcessId time=$([DateTime]::Now.ToString('o')) tree_limit_gb=$TreeLimitGB system_limit_gb=$SystemLimitGB interval_s=$IntervalSeconds"
+[void](Write-MonitorLine "watch start root=$RootProcessId time=$([DateTime]::Now.ToString('o')) tree_limit_gb=$TreeLimitGB system_limit_gb=$SystemLimitGB interval_s=$IntervalSeconds")
 $hasSample = $false
 
 while ($true) {
@@ -23,7 +49,7 @@ while ($true) {
             if (-not $hasSample) {
                 throw "Root PID $RootProcessId was absent before the first successful sample."
             }
-            Add-Content -LiteralPath $LogPath -Value "watch end root=$RootProcessId peak_tree_rss_gb=$([math]::Round($peakTree,2)) peak_system_used_gb=$([math]::Round($peakSystem,2)) time=$([DateTime]::Now.ToString('o'))"
+            [void](Write-MonitorLine "watch end root=$RootProcessId peak_tree_rss_gb=$([math]::Round($peakTree,2)) peak_system_used_gb=$([math]::Round($peakSystem,2)) time=$([DateTime]::Now.ToString('o'))")
             break
         }
 
@@ -55,15 +81,15 @@ while ($true) {
         $peakTree = [math]::Max($peakTree, $treeRss)
         $peakSystem = [math]::Max($peakSystem, $systemUsed)
         $hasSample = $true
-        Add-Content -LiteralPath $LogPath -Value "$([DateTime]::Now.ToString('o')) tree_pids=$(@($ids) -join ',') tree_rss_gb=$([math]::Round($treeRss,2)) peak_tree_rss_gb=$([math]::Round($peakTree,2)) system_used_gb=$([math]::Round($systemUsed,2)) peak_system_used_gb=$([math]::Round($peakSystem,2))"
+        [void](Write-MonitorLine "$([DateTime]::Now.ToString('o')) tree_pids=$(@($ids) -join ',') tree_rss_gb=$([math]::Round($treeRss,2)) peak_tree_rss_gb=$([math]::Round($peakTree,2)) system_used_gb=$([math]::Round($systemUsed,2)) peak_system_used_gb=$([math]::Round($peakSystem,2))")
 
         if ($treeRss -ge $TreeLimitGB -or $systemUsed -ge $SystemLimitGB) {
-            Add-Content -LiteralPath $LogPath -Value "watchdog stopping tree=$([math]::Round($treeRss,2))GB system=$([math]::Round($systemUsed,2))GB time=$([DateTime]::Now.ToString('o'))"
+            [void](Write-MonitorLine "watchdog stopping tree=$([math]::Round($treeRss,2))GB system=$([math]::Round($systemUsed,2))GB time=$([DateTime]::Now.ToString('o'))")
             foreach ($processId in $ids) { Stop-Process -Id $processId -Force }
             break
         }
     } catch {
-        Add-Content -LiteralPath $LogPath -Value "WATCHDOG ERROR; stopping root PID $RootProcessId. $($_.Exception.Message) time=$([DateTime]::Now.ToString('o'))"
+        [void](Write-MonitorLine "WATCHDOG ERROR; stopping root PID $RootProcessId. $($_.Exception.Message) time=$([DateTime]::Now.ToString('o'))")
         Stop-Process -Id $RootProcessId -Force
         exit 1
     }
