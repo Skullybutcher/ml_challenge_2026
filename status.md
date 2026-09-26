@@ -1,6 +1,6 @@
 # Status — Akari business entity resolution
 
-**Snapshot:** 2026-09-26 09:58 Asia/Kolkata
+**Snapshot:** 2026-09-26 10:01 Asia/Kolkata
 **Repository:** https://github.com/Skullybutcher/ml_challenge_2026
 **Active branch:** `exp/run1-2500-a467-20260926`
 **Base commit:** `a467bb7c79417e084b7e2fbd873191581c6d5a5b`
@@ -10,7 +10,7 @@ This file records the work and instructions received since the initial task prom
 
 ## Current Run 1
 
-The active process is PID 18208, started at approximately 08:35 local time. It is using the isolated `venv_pd2` environment with Pandas 2.3.3 and writing to `out_100k` and `run_100k.log` in this repository worktree. The run uses a 2,500-S1 chunk after earlier runs exceeded the 40 GB checkpoint; the process has stayed near 21 GB RSS so far. A monitor is active and will stop the process if sampled RSS reaches 47 GB, preserving the log tail.
+The active process is PID 18208, started at approximately 08:35 local time. It is using the isolated `venv_pd2` environment with Pandas 2.3.3 and writing to `out_100k` and `run_100k.log` in this repository worktree. The run uses a 2,500-S1 chunk after earlier runs exceeded the 40 GB checkpoint; the process RSS was 20.35 GB at 10:01 local time. A monitor is active and will stop the process if sampled RSS reaches 47 GB, preserving the log tail.
 
 Command:
 
@@ -94,4 +94,4 @@ No Run 2, submission validation, threshold staging, leaderboard upload, or compl
 
 ## Status document publishing
 
-The local status document commit is 577120b28719f257612c4e17d8e5d04ffbb09c2f. Publishing the exp branch was attempted with git push -u origin exp/run1-2500-a467-20260926. GitHub rejected it with HTTP 403: permission denied to Stakeylock. The branch has no upstream configured and no changes were pushed. The local commit and status.md are ready; publication requires a GitHub identity with write access to this repository.
+The status.md file is committed locally. The initial documentation commit is 577120b28719f257612c4e17d8e5d04ffbb09c2f; the current local branch tip includes a follow-up documenting publication failure. At 09:55, git push -u origin exp/run1-2500-a467-20260926 was rejected with HTTP 403 (permission denied to Stakeylock). A GitHub connector request to create the same branch at local commit b3f83e8b3c9fe90e57fdd5a777f4a1d59c029d48 was also rejected with HTTP 403 (Resource not accessible by integration). Neither method created the remote exp branch or pushed files; the local branch has no upstream. Publication requires a GitHub identity or integration with write access to this repository.
