@@ -419,3 +419,22 @@ At 02:45:16, process-tree RSS was 4.67 GB and system use was 20.27 GB; peaks rem
 Train chunks 37 and 38 completed at 02:50:15 and 02:56:00 IST. Chunk 37 produced 7,796,136 candidate pairs and retained 137,666 rows (8,500 positives); chunk 38 produced 7,958,390 pairs and retained 138,945 rows (8,573 positives). Checkpoints `train_chunk_0036.npz` and `train_chunk_0037.npz` are present. Run 1 is healthy at 38/40; launcher, Python workers, and memory watchdog remain alive, with no exit marker.
 
 At 03:00:17, process-tree RSS was 4.02 GB and system use was 19.36 GB. Peaks remain 31.49 GB process tree / 45.66 GB system, below the 44/47 GB watchdog limits. GPU was 42°C at 4% utilization and 22.10 W. CPU package temperature remains unavailable from a supported live sensor; generic ACPI zones are not a proxy. Candidate recall remains 0.9834 overall / 0.9966 US; India n=0 excluded. OOF and the threshold curve are pending. No leaderboard upload.
+## Run 1 final report (2026-09-27 IST)
+
+Run 1 completed successfully with exit code 0 at 03:10:18 after starting at 21:32:31 (about 5 h 38 min). All 40/40 training chunks completed and were checkpointed. The run used the authorized 100k sample, rare channel, 2,500-S1 train chunks, five folds, and `--skip-test`.
+
+| Sample | Candidate recall | OOF macro F0.5 | Pairs before → after subsampling |
+|---|---:|---:|---:|
+| 5k baseline | 0.9920 | 0.9856 | 2.65M → 272k |
+| 20k baseline | 0.9773 | 0.9759 | 5.48M → 1.05M |
+| 50k baseline | 0.9774 | 0.9773 | 35.7M → 2.70M |
+| Run 1, 100k | **0.9834** | **0.9825** | **311,199,888 → 5,509,855** |
+
+Run 1 is +0.0060 recall vs the 50k baseline and +0.0052 OOF F0.5. The US slice was 0.9966 recall (`n=60,078`). India had `n=0`, so its displayed 1.0000 is excluded. Positives remained 339,918 after subsampling. The threshold curve was: `0.62:0.9825, 0.65:0.9825, 0.57:0.9825, 0.60:0.9825, 0.68:0.9824, 0.70:0.9824, 0.55:0.9823, 0.72:0.9822`. The model's best point was threshold 0.625 / OOF 0.9825. The highest displayed top-eight threshold within 0.001 of best is 0.72 (score 0.9822, 0.0003 below best); OOF predictions and the full 37-point curve were not persisted, so this is the highest qualifying displayed point rather than a verified global maximum.
+
+**Run 1 gates: PASS.** Recall ≥0.95, OOF ≥0.970, and the top-eight curve printed. The India-only slice is inapplicable at `n=0`. Peak memory was 31.49 GB process-tree RSS and 45.66 GB system used, under the 44/47 GB active watchdog limits. The pipeline's own RSS sampler was unavailable because `psutil` is not installed; the external process-tree monitor supplied the peak. At Run 2 preflight, C: had 94.7 GB free (≥40 GB required), free RAM was 49.7 GB, the RTX 5070 Ti was 43°C, and no Run 2 process was active. A supported CPU-package temperature reading is still unavailable; generic ACPI zones are not treated as CPU temperature.
+
+Run 2 launch settings: same dataset and Python 3.11 environment, `PYTHONHASHSEED=42`, CPU affinity `0xffff0000`, 100k sample, five folds, 2,500-S1 train chunks, `--use-rare --rare-max-df 1000 --resume-train-chunks`, and no `--skip-test`. The requested plateau policy is applied by `utils/run_pipeline_plateau.py` to Run 2's own 37-point OOF grid; it chooses the highest threshold within 0.001 of the grid best, without editing the frozen pipeline or metric code. Memory monitoring is 44 GB process-tree / 47 GB system; GPU monitoring stops at 82°C; the first test chunk pair-count tripwire stops the run above 50,000,000 pairs. The 48 GB combined cap remains in force.
+## Run 2 launch (2026-09-27, 04:09 IST)
+
+Run 2 started on the authorized experiment branch after Run 1 gates passed. Launcher PID 32000; memory watchdog PID 22988; first-test-chunk pair tripwire PID 38256; GPU thermal watchdog PID 30584. Initial log confirms affinity `0xffff0000`, fixed hash seed 42, and a new resumable checkpoint fingerprint `8a332660fb9a`. At the first monitor sample the process tree used 1.25 GB and system memory 15.29 GB; GPU was 42°C. No failure/exit marker is present. Training-source loading has begun; test inference has not yet begun, so the >50M first-test-chunk tripwire remains armed.
