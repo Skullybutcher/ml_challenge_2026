@@ -22,18 +22,18 @@ CPU-only. 64GB RAM removes all memory constraints seen on 16GB (peaks were ≤8.
 Get-PSDrive D, C | Select-Object Name, @{N="FreeGB";E={[math]::Round($_.Free/1e9,1)}}
 ```
 
-## 1. Run 1 — validation (~30-60 min). REPORT, then WAIT for Aman's go.
+## 1. Run 1 — validation (~1.5-2.5h). REPORT in-repo on completion.
 
 ```powershell
-python $SRC/pipeline.py --data-dir $DATA --out-dir out_100k --sample-s1 100000 --skip-test --n-splits 5 --train-chunk-size 5000 > run_100k.log 2>&1
+python $SRC/pipeline.py --data-dir $DATA --out-dir out_100k --sample-s1 100000 --skip-test --n-splits 5 --train-chunk-size 5000 --use-rare > run_100k.log 2>&1
 ```
 
-Send Aman the last 15 lines of `run_100k.log`. Required numbers: `Train candidate recall`, `Pairs before/after subsample`, `OOF macro F0.5`, `Best threshold`, wall time. Gate: recall ≥ 0.90 (expect ~0.977), OOF ≈ 0.976-0.986.
+`--use-rare` is REQUIRED (long-token rescue channel; +0.012 recall at 50k). Send Aman the last 15 lines of `run_100k.log`. Required numbers: `Train candidate recall` (+ per-country lines), `Pairs before/after subsample`, `Threshold curve (top 8)`, `Best threshold`, `OOF macro F0.5`, wall time, peak GB. Gates: recall ≥ 0.95 (expect ~0.985), OOF ≥ 0.970 (expect ~0.985), peak < 48GB.
 
-## 2. Run 2 — full run, ONLY on Aman's explicit go (~8-14h, overnight OK).
+## 2. Run 2 — full run on NIGHT_HANDOFF gates, no separate go-ahead (~10-20h, overnight OK).
 
 ```powershell
-python $SRC/pipeline.py --data-dir $DATA --out-dir out_full --sample-s1 100000 --n-splits 5 --train-chunk-size 5000 > run_full.log 2>&1
+python $SRC/pipeline.py --data-dir $DATA --out-dir out_full --sample-s1 100000 --n-splits 5 --train-chunk-size 5000 --use-rare > run_full.log 2>&1
 ```
 
 Trains on the 100k sample, blocks + scores all 1,732,544 test S1 in 100k chunks, streams both TSVs. Poll with `Get-Content run_full.log -Tail 3`. First test chunk: check the `pairs=` count; if any chunk exceeds ~50M pairs, STOP and tell Aman (merge-explosion guard).
