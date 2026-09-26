@@ -407,3 +407,9 @@ At 01:50:14, process-tree RSS was 7.70 GB and system use was 23.34 GB. Peaks rem
 Train chunks 30-35 completed: chunk 30 at 01:53:50 (7,739,385 pairs; 136,566 retained; 8,434 positives), chunk 31 at 02:03:31 (7,687,964; 138,527; 8,540), chunk 32 at 02:12:35 (7,580,095; 139,421; 8,601), chunk 33 at 02:21:34 (7,935,218; 138,427; 8,549), chunk 34 at 02:29:43 (7,708,419; 136,299; 8,382), and chunk 35 at 02:37:02 (7,559,538; 136,317; 8,405). Their chunk checkpoints are present. Run 1 is healthy at 35/40; launcher, Python workers, and memory watchdog remain alive, and no `run_100k.exit` marker exists.
 
 At 02:43:42, process-tree RSS was 5.40 GB and system use 20.93 GB. Peaks remain 31.49 GB tree / 45.66 GB system, below the 44/47 GB watchdog limits. GPU was 43°C at 3% utilization and 22.40 W. A supported CPU package temperature reading remains unavailable; generic ACPI zones are not used as a proxy. Candidate recall remains 0.9834 overall / 0.9966 US; India n=0 excluded. OOF and the top-8 threshold curve have not yet printed, so Run 2 gates are pending. No run changes or leaderboard uploads.
+
+## Run 1 update (2026-09-27, 02:45 IST)
+
+Train chunk 36/40 completed at 02:43:57 IST: 7,738,283 candidate pairs and 140,595 retained rows (8,725 positives). Checkpoint `train_chunk_0035.npz` is present. Run 1 remains healthy; launcher, Python workers, and memory watchdog are alive, and no `run_100k.exit` marker exists.
+
+At 02:45:16, process-tree RSS was 4.67 GB and system use was 20.27 GB; peaks remain 31.49/45.66 GB, under the 44/47 GB watchdog limits. GPU was 43°C at 3% utilization and 22.90 W. CPU package temperature remains unavailable from a supported sensor. Candidate recall remains 0.9834 overall / 0.9966 US; India n=0 excluded. OOF and the top-8 threshold curve remain pending; Run 2 gates are not yet confirmed. No leaderboard upload.
