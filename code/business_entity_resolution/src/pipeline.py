@@ -33,6 +33,9 @@ from normalize import normalize_name, normalize_address
 from blocking import (generate_candidates, generate_candidates_token,
                       generate_candidates_prefix, generate_candidates_rare,
                       union_candidates)
+from checkpointing import (chunk_checkpoint_path, load_training_chunk,
+                           prepare_training_checkpoint, save_training_chunk,
+                           s1_chunk_digest)
 
 
 def cap_candidates_per_s1(cand_s2: Dict[str, Set[str]], cand_s3: Dict[str, Set[str]],
@@ -244,10 +247,59 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         use_tfidf: bool = False, test_chunk_size: int | None = 100_000,
         train_chunk_size: int | None = 5000, skip_test: bool = False,
         max_pairs_per_s1: int = 0, use_rare: bool = False,
-        rare_min_len: int = 6, rare_max_df: int = 2000) -> None:
+        rare_min_len: int = 6, rare_max_df: int = 2000,
+        resume_train_chunks: bool = False) -> None:
     os.makedirs(out_dir, exist_ok=True)
     rss = PeakRSSSampler(interval=30.0)
     rss.start()
+
+    train_checkpoint_dir = None
+    train_checkpoint_fingerprint = None
+    if resume_train_chunks:
+        # Candidate sets are iterated in hash order, and the order influences
+        # which negatives the seeded per-S1 sampler selects. Pin the process
+        # hash seed before Python starts so uncached chunks remain reproducible
+        # when a later process resumes this run.
+        hash_seed = os.environ.get("PYTHONHASHSEED", "")
+        if not hash_seed.isdecimal() or int(hash_seed) > 4_294_967_295:
+            raise ValueError(
+                "--resume-train-chunks requires PYTHONHASHSEED to be set to a "
+                "fixed integer before Python starts (for example 42)."
+            )
+        log("Fingerprinting training inputs and code for chunk resume...")
+        checkpoint_params = {
+            "sample_s1": sample_s1,
+            "seed": seed,
+            "max_df": max_df,
+            "prefix_len": prefix_len,
+            "max_pairs_per_prefix_key": max_pairs_per_prefix_key,
+            "neg_per_pos_cap": neg_per_pos_cap,
+            "use_tfidf": bool(use_tfidf),
+            "use_rare": bool(use_rare),
+            "rare_min_len": rare_min_len,
+            "rare_max_df": rare_max_df,
+            "max_pairs_per_s1": max_pairs_per_s1,
+            "train_chunk_size": train_chunk_size,
+            "feature_names": FEATURE_NAMES,
+            "feature_dtype": "float32",
+            "python_hash_seed": hash_seed,
+        }
+        code_paths = [
+            __file__,
+            sys.modules["checkpointing"].__file__,
+            sys.modules["features"].__file__,
+            sys.modules["blocking"].__file__,
+            sys.modules["normalize"].__file__,
+            sys.modules["io_utils"].__file__,
+        ]
+        train_checkpoint_dir, train_checkpoint_fingerprint = prepare_training_checkpoint(
+            os.path.join(out_dir, ".train_chunk_checkpoints"),
+            data_dir,
+            checkpoint_params,
+            code_paths,
+        )
+        log(f"Train chunk resume enabled: {train_checkpoint_dir} "
+            f"(key={train_checkpoint_fingerprint[:12]})")
 
     # ---------- 1. Load + validate ----------
     log("Loading training sources...")
@@ -295,12 +347,17 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
             if return_counts:
                 return cands, None
             return cands
-        token_c = generate_candidates_token(s1, other, max_df=max_df, return_counts=True)
-        # Sets for the union channel come from the SAME merge as the counted
-        # frame (counted rows = union of that merge), so the union is exact.
-        token_sets: Dict[str, Set[str]] = {}
-        for s1_id, grp in token_c.groupby("entity_id_s1"):
-            token_sets[s1_id] = set(grp["entity_id_other"].to_numpy())
+        token_c = generate_candidates_token(
+            s1, other, max_df=max_df, return_counts=return_counts)
+        # Counts are needed only by the optional pair cap. The ordinary path
+        # can consume the exact candidate set directly without holding a
+        # second copy of the token pairs.
+        if return_counts:
+            token_sets: Dict[str, Set[str]] = {}
+            for s1_id, grp in token_c.groupby("entity_id_s1"):
+                token_sets[s1_id] = set(grp["entity_id_other"].to_numpy())
+        else:
+            token_sets = token_c
         prefix_sets = generate_candidates_prefix(s1, other, prefix_len=prefix_len,
                                                  max_pairs_per_key=max_pairs_per_prefix_key)
         if use_rare:
@@ -317,9 +374,16 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
     # ---------- 3. Blocking on TRAIN ----------
     t_block0 = time.time()
     log(f"Blocking train S1 vs S2 (max_df={max_df})...")
-    cand_tr_s2, counted_s2 = block(s1_tr, s2_tr, return_counts=True)
+    need_token_counts = max_pairs_per_s1 > 0
+    if need_token_counts:
+        cand_tr_s2, counted_s2 = block(s1_tr, s2_tr, return_counts=True)
+    else:
+        cand_tr_s2, counted_s2 = block(s1_tr, s2_tr, return_counts=False), None
     log(f"Blocking train S1 vs S3 (max_df={max_df})...")
-    cand_tr_s3, counted_s3 = block(s1_tr, s3_tr, return_counts=True)
+    if need_token_counts:
+        cand_tr_s3, counted_s3 = block(s1_tr, s3_tr, return_counts=True)
+    else:
+        cand_tr_s3, counted_s3 = block(s1_tr, s3_tr, return_counts=False), None
     block_min = (time.time() - t_block0) / 60.0
     log(f"[TIMING] blocking (both sources): {block_min:.1f} min")
 
@@ -332,8 +396,10 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         log(f"Per-S1 cap {max_pairs_per_s1}: pre-cap union pairs={pre_cap_total:,}")
         cap_candidates_per_s1(cand_tr_s2, cand_tr_s3, counted_s2, counted_s3,
                               s1_ids_all, max_pairs_per_s1)
-        del counted_s2, counted_s3
-        gc.collect()
+
+    # Counts are consumed by the optional cap. Release them on both paths.
+    del counted_s2, counted_s3
+    gc.collect()
 
     # Recall gate on the union, computed without materializing a third
     # union dict (a full-candidate union costs ~1GB at 50k S1).
@@ -388,6 +454,38 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
     for ci in range(n_tr_chunks):
         lo, hi = ci * chunk, (ci + 1) * chunk
         s1_ids_chunk = s1_ids_all[lo:hi]
+
+        checkpoint_metadata = {
+            "chunk_index": ci,
+            "lo": lo,
+            "hi": hi,
+            "s1_digest": s1_chunk_digest(s1_ids_chunk),
+        }
+        checkpoint_path = (chunk_checkpoint_path(train_checkpoint_dir, ci)
+                           if train_checkpoint_dir is not None else None)
+        cached_chunk = (load_training_chunk(checkpoint_path,
+                                             train_checkpoint_fingerprint,
+                                             checkpoint_metadata, FEATURE_NAMES)
+                        if checkpoint_path is not None else None)
+        if cached_chunk is not None:
+            feat_df, labels, n_pre, n_pos_pre = cached_chunk
+            for eid in s1_ids_chunk:
+                cand_tr_s2.pop(eid, None)
+                cand_tr_s3.pop(eid, None)
+            for i in range(lo, hi):
+                other_lists_all[i] = []
+            pairs_pre_subsample += n_pre
+            pos_pre_subsample += n_pos_pre
+            pairs_post_subsample += len(feat_df)
+            feat_parts.append(feat_df)
+            label_parts.append(labels)
+            log(f"train chunk {ci + 1}/{n_tr_chunks}: resumed checkpoint; "
+                f"pairs={n_pre:,} -> subsampled={len(feat_df):,} "
+                f"(pos after subsample: {int(labels.sum()):,})")
+            continue
+        if checkpoint_path is not None and checkpoint_path.exists():
+            log(f"Ignoring invalid chunk checkpoint {checkpoint_path.name}; recomputing chunk.")
+
         lists_chunk = other_lists_all[lo:hi]
         cands_chunk = {eid: set(lst) for eid, lst in zip(s1_ids_chunk, lists_chunk)}
         # Split per source for pair assembly, then drop this chunk's entries so
@@ -407,18 +505,25 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
                               build_pair_frame(s1_chunk, s3_tr, chunk_s3)],
                              ignore_index=True)
         del chunk_s2, chunk_s3
+        for i in range(lo, hi):
+            other_lists_all[i] = []
         n_pre = len(pairs_tr)
         feat_df = build_feature_frame_vectorized(pairs_tr)
         del pairs_tr
         labels = np.array([1 if o in gt.get(s, set()) else 0
                            for s, o in zip(feat_df["s1_id"].to_numpy(),
                                            feat_df["other_id"].to_numpy())])
+        n_pos_pre = int(labels.sum())
         pairs_pre_subsample += n_pre
-        pos_pre_subsample += int(labels.sum())
+        pos_pre_subsample += n_pos_pre
         if neg_per_pos_cap > 0:
             feat_df, labels = subsample_negatives_incremental(
                 feat_df, labels, neg_per_pos_cap, seed=seed)
         pairs_post_subsample += len(feat_df)
+        if checkpoint_path is not None:
+            save_training_chunk(checkpoint_path, train_checkpoint_fingerprint,
+                                checkpoint_metadata, feat_df, labels,
+                                FEATURE_NAMES, n_pre, n_pos_pre)
         feat_parts.append(feat_df)
         label_parts.append(labels)
         log(f"train chunk {ci + 1}/{n_tr_chunks}: pairs={n_pre:,} -> "
@@ -536,6 +641,9 @@ def main():
                     help="test S1 rows per inference chunk; bounds peak RAM (0 = no chunking)")
     ap.add_argument("--train-chunk-size", type=int, default=5000,
                     help="train S1 rows per featurization chunk; bounds peak RAM (0 = no chunking)")
+    ap.add_argument("--resume-train-chunks", action="store_true",
+                    help="atomically checkpoint completed sampled train chunks and reuse only "
+                         "chunks whose inputs, code, settings, and runtime match")
     ap.add_argument("--max-pairs-per-s1", type=int, default=0,
                     help="rank candidates per S1 (shared-token count desc, prefix-exclusive "
                          "pairs survive ties) and keep top-N; 0 = no cap (default)")
@@ -560,7 +668,8 @@ def main():
         skip_test=args.skip_test,
         max_pairs_per_s1=args.max_pairs_per_s1,
         use_rare=args.use_rare, rare_min_len=args.rare_min_len,
-        rare_max_df=args.rare_max_df)
+        rare_max_df=args.rare_max_df,
+        resume_train_chunks=args.resume_train_chunks)
 
     if args.validate:
         validator = os.path.join(args.data_dir, "utils", "validate_submission.py")

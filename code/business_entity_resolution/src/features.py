@@ -4,6 +4,9 @@ Source-2/3 record. Kept dependency-light (rapidfuzz + stdlib) so it runs
 fast over large candidate sets on Kaggle CPU.
 """
 from __future__ import annotations
+import os
+import hashlib
+import sys
 from typing import Dict, List
 
 from rapidfuzz import fuzz
@@ -66,6 +69,22 @@ def pair_features(
     ]
 
 
+def _diagnostic_value(value) -> str:
+    """Describe a failing value without writing business text into the log."""
+    value_type = type(value)
+    try:
+        value_len = len(value)
+    except Exception:
+        value_len = "n/a"
+    try:
+        payload = repr(value).encode("utf-8", errors="backslashreplace")
+        digest = hashlib.sha256(payload).hexdigest()[:12]
+    except Exception:
+        digest = "unavailable"
+    return (f"type={value_type.__module__}.{value_type.__qualname__} "
+            f"exact_str={value_type is str} len={value_len} repr_sha256={digest}")
+
+
 def build_feature_frame(pairs: List[Dict]) -> "pandas.DataFrame":
     """
     pairs: list of dicts each with keys
@@ -89,15 +108,88 @@ def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.Data
     import pandas as pd
     if len(pairs_df) == 0:
         return pd.DataFrame(columns=["s1_id", "other_id"] + FEATURE_NAMES)
-    n1 = pairs_df["name1"].fillna("").tolist()
-    a1 = pairs_df["addr1"].fillna("").tolist()
-    c1 = pairs_df["country1"].fillna("").tolist()
-    n2 = pairs_df["name2"].fillna("").tolist()
-    a2 = pairs_df["addr2"].fillna("").tolist()
-    c2 = pairs_df["country2"].fillna("").tolist()
-    feats = [pair_features(x1, y1, z1, x2, y2, z2)
-             for x1, y1, z1, x2, y2, z2 in zip(n1, a1, c1, n2, a2, c2)]
-    out = pd.DataFrame(np.asarray(feats, dtype=np.float32), columns=FEATURE_NAMES)
+    # Merge results can contain non-string scalars even though source TSVs are
+    # loaded as text. The scalar feature functions require strings (for example,
+    # _char_bigrams slices each value), so enforce that contract after filling
+    # nulls and before converting the columns to Python lists.
+    n1 = pairs_df["name1"].fillna("").astype(str).tolist()
+    a1 = pairs_df["addr1"].fillna("").astype(str).tolist()
+    c1 = pairs_df["country1"].fillna("").astype(str).tolist()
+    n2 = pairs_df["name2"].fillna("").astype(str).tolist()
+    a2 = pairs_df["addr2"].fillna("").astype(str).tolist()
+    c2 = pairs_df["country2"].fillna("").astype(str).tolist()
+    # Keep NumPy's nested-sequence conversion bounded when a candidate chunk
+    # contains millions of pairs. This also preserves a predictable peak while
+    # retaining the original scalar feature computation and ordering.
+    feat_array = np.empty((len(pairs_df), len(FEATURE_NAMES)), dtype=np.float32)
+    batch_size = 100_000
+    trace_batches = os.environ.get("AKARI_TRACE_FEATURE_BATCHES") == "1"
+    for start in range(0, len(pairs_df), batch_size):
+        end = min(start + batch_size, len(pairs_df))
+        if trace_batches:
+            print(f"[FEATURES] start rows={start}:{end} total={len(pairs_df):,}", flush=True)
+        batch_inputs = zip(
+            n1[start:end], a1[start:end], c1[start:end],
+            n2[start:end], a2[start:end], c2[start:end])
+        # zip iterators are consumed by the list comprehension, so retain only
+        # the six bounded 100k slices needed to replay a failed batch.
+        batch_columns = (
+            n1[start:end], a1[start:end], c1[start:end],
+            n2[start:end], a2[start:end], c2[start:end])
+        try:
+            batch = [pair_features(x1, y1, z1, x2, y2, z2)
+                     for x1, y1, z1, x2, y2, z2 in batch_inputs]
+        except Exception as batch_exc:
+            try:
+                with open(__file__, "rb") as source_file:
+                    source_sha = hashlib.sha256(source_file.read()).hexdigest()
+            except OSError:
+                source_sha = "unavailable"
+            print(
+                f"[FEATURES-ERROR] batch={start}:{end} total={len(pairs_df):,} "
+                f"python={sys.version.split()[0]} executable={sys.executable} "
+                f"module={os.path.realpath(__file__)} source_sha256={source_sha} "
+                f"pair_features_file={pair_features.__code__.co_filename} "
+                f"exception={type(batch_exc).__module__}.{type(batch_exc).__qualname__}: "
+                f"{batch_exc!r}",
+                flush=True,
+            )
+            for local_offset, values in enumerate(zip(*batch_columns)):
+                try:
+                    pair_features(*values)
+                except Exception as row_exc:
+                    absolute_offset = start + local_offset
+                    pair_ids = pairs_df.iloc[absolute_offset][["s1_id", "other_id"]].to_dict()
+                    names = ("name1", "addr1", "country1", "name2", "addr2", "country2")
+                    details = "; ".join(
+                        f"{name}({_diagnostic_value(value)})"
+                        for name, value in zip(names, values))
+                    print(
+                        f"[FEATURES-ERROR] first failing pair offset={absolute_offset} "
+                        f"ids={pair_ids!r} row_exception="
+                        f"{type(row_exc).__module__}.{type(row_exc).__qualname__}: "
+                        f"{row_exc!r}; inputs={details}",
+                        flush=True,
+                    )
+                    break
+            else:
+                print(
+                    f"[FEATURES-ERROR] batch exception was not reproduced by row-wise replay "
+                    f"for rows {start}:{end}.",
+                    flush=True,
+                )
+            raise
+        del batch_inputs, batch_columns
+        batch_array = np.asarray(batch, dtype=np.float32)
+        if batch_array.shape != (end - start, len(FEATURE_NAMES)):
+            raise ValueError(
+                f"Feature batch shape {batch_array.shape}; expected "
+                f"({end - start}, {len(FEATURE_NAMES)})"
+            )
+        feat_array[start:end] = batch_array
+        if trace_batches:
+            print(f"[FEATURES] done rows={start}:{end} total={len(pairs_df):,}", flush=True)
+    out = pd.DataFrame(feat_array, columns=FEATURE_NAMES)
     out.insert(0, "s1_id", pairs_df["s1_id"].to_numpy())
     out.insert(1, "other_id", pairs_df["other_id"].to_numpy())
     return out
