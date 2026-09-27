@@ -1,26 +1,24 @@
-# Latest status summary — 2026-09-27, 06:45 IST
+# Latest status summary — 2026-09-27, 07:07 IST
 
 ## Run 1 (completed; launch gates PASS)
 
 - Candidate recall: **0.9834 overall**, **0.9966 US** (n=60,078); India is excluded because n=0.
-- OOF macro F0.5: **0.9825**.
-- Pairs: **311,199,888 before → 5,509,855 after** subsampling.
-- Top-eight threshold curve: **0.62:0.9825, 0.65:0.9825, 0.57:0.9825, 0.60:0.9825, 0.68:0.9824, 0.70:0.9824, 0.55:0.9823, 0.72:0.9822**.
-- Plateau pick: **0.72**, the highest displayed threshold within 0.001 of best (0.0003 below the best score). The persisted log contains only the top eight, so 0.72 is the highest qualifying displayed point, not a verified maximum over the full grid.
-- Gates used to launch Run 2: **PASS** (recall ≥0.95; OOF ≥0.970; threshold curve printed). Peak was **31.49 GB process tree / 45.66 GB system**.
+- OOF macro F0.5: **0.9825**; 311,199,888 candidate pairs before subsampling and 5,509,855 retained training pairs.
+- Logged top-eight curve: **0.62:0.9825, 0.65:0.9825, 0.57:0.9825, 0.60:0.9825, 0.68:0.9824, 0.70:0.9824, 0.55:0.9823, 0.72:0.9822**. Global plateau choice remains **0.72**, highest displayed point within 0.001; the complete grid was not persisted.
+- Launch gates passed. Peak was **31.49 GB process tree / 45.66 GB system**.
 
-## Run 2 (running; last verified 06:45 IST)
+## Run 1 E4 threshold splits — pending required probabilities
 
-- Training featurization: **29/40 chunks checkpointed** (latest chunk 29 completed at 06:43:14). Launcher and watchdogs are alive; no exit, error, or tripwire marker.
-- Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. This passes the recall gate.
-- Run 2 OOF and its threshold curve are **pending** until model training begins after all 40 feature chunks. Therefore the Run 2 OOF/curve gates are not yet evaluated.
-- At 06:45:19, process-tree RSS was 11.23 GB (peak 17.83 GB); system use was 25.62 GB (peak 31.88 GB); the latest GPU sample at 06:45:11 was 43°C. CPU package temperature is unavailable from a supported sensor.
+- The existing Run 1 output does **not** contain raw OOF probabilities or the full 37-point curve; its log only prints the top eight scores. No source-specific or singleton-specific threshold scores can be computed from labels and pair IDs alone.
+- Commit `0d4575d` adds the 5,509,855 aligned labels and `(s1_id, other_id)` pairs exported from saved chunks. The artifact manifest records this limitation. No split threshold is claimed or adopted yet.
+- After Run 2 completes, regenerate raw OOF probabilities from the saved Run 1 feature checkpoints, compute the full grid and requested source/singleton splits, then record the E4 result here and in `SUBMISSIONS.md` before choosing a submission threshold.
 
-## Run 2 progress — 2026-09-27, 06:45 IST
+## Run 2 (running; last verified 07:07 IST)
 
-- Chunk 29/40 completed at 06:43:14: 3,704,030 pairs → 136,072 retained (8,421 positives); the checkpoint directory contains 29 completed chunk checkpoints.
-- Run 2 candidate recall remains 0.9752 overall and 0.9911 US (n=60,078); India has n=0 and is excluded. OOF and threshold curve remain pending until model training after all 40 feature chunks.
-- Launcher and all three guards are alive. `run_full.exit` and the >50M-pair tripwire marker are absent. At 06:45:19, tree RSS was 11.23 GB (peak 17.83 GB), system use 25.62 GB (peak 31.88 GB), and GPU was 43°C at the latest 06:45:11 sample.
+- Training featurization: **37/40 chunks checkpointed** (latest chunk 37 completed at 07:05:52); launcher, memory, tripwire, and GPU guards are alive. `run_full.exit` and `run_full.tripwire` are absent.
+- Latest chunk results: 35/40 at 07:01:07, 3,613,766 → 134,599 (8,336 positives); 36/40 at 07:03:33, 3,598,378 → 138,342 (8,644); 37/40 at 07:05:52, 3,617,596 → 135,195 (8,401).
+- Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. Run 2 OOF and threshold curve remain pending until all 40 chunks are featurized and the model stage runs.
+- At 07:07:21, process-tree RSS was **9.24 GB** (peak **17.83 GB**); system use **23.38 GB** (peak **31.88 GB**). Latest GPU sample at 07:07:16 was **43°C**. A supported CPU-package sensor is unavailable.
 Detailed chronological Run 1 and Run 2 history follows.
 
 # Status — Akari business entity resolution
