@@ -703,9 +703,9 @@ def main():
     ap.add_argument("--use-e5", action="store_true",
                     help="append name/address E5 cosine features from completed fp16 memmaps")
     ap.add_argument("--e5-name-dir", default=None,
-                    help="directory written by generate_embeddings.py --name-out")
+                    help="directory containing combined train/test E5 name arrays and IDs")
     ap.add_argument("--e5-address-dir", default=None,
-                    help="directory written by generate_embeddings.py --address-out")
+                    help="directory containing combined train/test E5 address arrays and IDs")
     ap.add_argument("--france-threshold", type=float, default=None,
                     help="optional calibrated probability threshold for France S1 rows")
     ap.add_argument("--other-country-threshold", type=float, default=None,

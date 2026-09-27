@@ -25,10 +25,12 @@ MODEL_REVISION = "f169b11e22de13617baa190a028a32f3493550b6"
 VECTOR_DTYPE = np.float16
 DIMENSION = 1024
 ID_DTYPE = "S16"
-DEFAULT_PREFIX = "query: "  # symmetric similarity: same query prefix for both records
-GPU_PAUSE_C = 68
-GPU_RESUME_C = 56
+DEFAULT_PREFIX = "passage: "  # required for all train/test names and addresses
+GPU_PAUSE_C = 60
+GPU_RESUME_C = 48
 GPU_STOP_C = 82
+_NVML = None
+_NVML_HANDLE = None
 TABLES = (
     ("train_s1", "train/train_source1.tsv"),
     ("train_s2", "train/train_source2.tsv"),
@@ -115,6 +117,18 @@ def commit_progress(array, state_path: Path, state: dict, rows_completed: int,
 
 def get_gpu_temperature() -> int | None:
     try:
+        global _NVML, _NVML_HANDLE
+        if _NVML is None:
+            import pynvml
+            pynvml.nvmlInit()
+            _NVML = pynvml
+            _NVML_HANDLE = pynvml.nvmlDeviceGetHandleByIndex(0)
+        return int(_NVML.nvmlDeviceGetTemperature(
+            _NVML_HANDLE, _NVML.NVML_TEMPERATURE_GPU
+        ))
+    except Exception:
+        pass
+    try:
         raw = subprocess.check_output(
             ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
             text=True, stderr=subprocess.DEVNULL, timeout=5,
@@ -126,10 +140,8 @@ def get_gpu_temperature() -> int | None:
 
 def enforce_resource_limits(psutil, torch, last_check: float) -> float:
     now = time.monotonic()
-    if now - last_check < 1:
-        return last_check
 
-    def sample_vitals() -> int | None:
+    def sample_vitals(force_log: bool = False) -> int | None:
         proc = psutil.Process()
         procs = [proc] + proc.children(recursive=True)
         tree_gb = 0.0
@@ -141,8 +153,10 @@ def enforce_resource_limits(psutil, torch, last_check: float) -> float:
         tree_gb /= 1024 ** 3
         used_gb = psutil.virtual_memory().used / 1024 ** 3
         temperature = get_gpu_temperature() if torch.cuda.is_available() else None
-        print(f"[VITALS] process_tree={tree_gb:.2f}GB system_used={used_gb:.2f}GB "
-              f"gpu_temp={temperature if temperature is not None else 'unavailable'}C", flush=True)
+        if force_log:
+            print(f"[VITALS] process_tree={tree_gb:.2f}GB system_used={used_gb:.2f}GB "
+                  f"gpu_temp={temperature if temperature is not None else 'unavailable'}C",
+                  flush=True)
         if tree_gb >= 44:
             raise RuntimeError(
                 f"Process-tree memory watchdog reached: {tree_gb:.2f} GB (limit 44 GB)."
@@ -157,15 +171,18 @@ def enforce_resource_limits(psutil, torch, last_check: float) -> float:
             )
         return temperature
 
-    temperature = sample_vitals()
+    temperature = sample_vitals(force_log=(now - last_check >= 15))
     if temperature is not None and temperature >= GPU_PAUSE_C:
         print(f"[THERMAL-PAUSE] GPU at {temperature} C; pausing embeddings until <={GPU_RESUME_C} C.",
               flush=True)
         while temperature > GPU_RESUME_C:
             time.sleep(1)
-            temperature = sample_vitals()
+            log_due = time.monotonic() - last_check >= 5
+            temperature = sample_vitals(force_log=log_due)
+            if log_due:
+                last_check = time.monotonic()
         print(f"[THERMAL-RESUME] GPU cooled to {temperature} C; continuing.", flush=True)
-    return time.monotonic()
+    return time.monotonic() if time.monotonic() - last_check >= 15 else last_check
 
 
 def embed_batch(texts: list[str], tokenizer, model, torch, device: str,
@@ -213,7 +230,7 @@ def main() -> int:
     parser.add_argument("--address-out", type=Path, required=True,
                         help="root for address-vector tables")
     parser.add_argument("--model-cache", type=Path, default=Path(r"D:\mlc_e5_cache"))
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--checkpoint-every", type=int, default=500_000)
     parser.add_argument("--read-chunk-rows", type=int, default=32_768)
@@ -432,4 +449,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Keep the historical entry point but write the combined files consumed
+    # by the pipeline, without a second full-size vstack/concatenate copy.
+    from generate_embeddings_combined import main as combined_main
+    raise SystemExit(combined_main())

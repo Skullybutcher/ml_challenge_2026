@@ -1,4 +1,12 @@
-# Current status — 2026-09-27 17:06 IST
+# Current status — 2026-09-27 17:40 IST
+
+## E5 output-contract audit — 2026-09-27 17:40 IST
+
+- The **full-output format has not yet been generated**, but the 100-row-per-source pilot confirms the contract path: `train_names.npy`, `train_addrs.npy`, `test_names.npy`, `test_addrs.npy` and their four ID arrays are created with the expected combined rows. A follow-up 512-row-per-source pilot exercised actual batch 512 without OOM and completed across all six source tables.
+- Verified pilot artifacts: fp16 `(1,536, 1,024)` train/test field arrays; IDs are aligned fixed-width `S16` arrays (the pipeline loader intentionally uses `allow_pickle=False`); first-100 name/address vector norms were within `[0.999968, 1.000035]`; first 100 IDs from each source table matched the source TSV order. The updated `E5EmbeddingStore` loaded those artifacts and returned finite `(2, 2)` cosine features. Prefix is `passage: `, pooling is masked mean, and L2 normalization is recorded in the manifest.
+- The generator now defaults to `passage: `, batch 512 and 500,000-row checkpoints. It writes combined arrays directly as memmaps; it does not use `np.vstack`/`np.concatenate`, avoiding a second full-size allocation. Thermal pauses occurred at 61–65°C and resumed at 43–48°C; the 82°C hard stop and memory watchdogs remain enabled. Python compilation and `git diff --check` passed.
+- No full E5 job is running; PID 20956 is stale. The previous full attempts stopped at the configured 82°C limit. Legacy partial states still record `query: ` and 0 committed vector rows; the `train_s1_ids` sidecar has 131,072 committed rows. The saved vector partials are incompatible with the required prefix and are being preserved until the transition is safely archived.
+- Legacy partial arrays occupied about 46.6 GB on C: and 46.2 GB on E:. Their verified recovery archives are `C:\\mlc_model\\legacy_e5_name_query_partials_20260927.zip` (24 files; 50.01 GB logical, 448 MB compressed) and `E:\\mlc_model\\legacy_e5_address_query_partials_20260927.zip` (12 files; 49.62 GB logical, 401 MB compressed). ZIP CRC validation passed. The original files remain in place; current free space is C: 46.8 GB / E: 30.0 GB. The required final arrays need about 50 GB per drive plus margin, so they do not fit beside these legacy files. A filesystem safety review rejected removing the raw legacy files after backup; it returned no specific reason. The full run is paused until Aman approves retiring those archived raw files or more storage is made available. No leaderboard upload has occurred.
 
 This live snapshot supersedes older status summaries below; detailed prior entries are retained as history.
 

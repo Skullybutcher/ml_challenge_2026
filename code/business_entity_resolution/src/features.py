@@ -34,7 +34,7 @@ def enable_e5_features() -> None:
 
 
 class E5EmbeddingStore:
-    """Read-only, lazily opened table memmaps produced by generate_embeddings.py."""
+    """Read-only combined train/test memmaps produced by generate_embeddings.py."""
 
     TABLE_CODES = {
         "train_s1": 0, "train_s2": 1, "train_s3": 2,
@@ -55,6 +55,11 @@ class E5EmbeddingStore:
             )
         self.name_manifest = json.loads(name_manifest_path.read_text(encoding="utf-8"))
         self.address_manifest = json.loads(address_manifest_path.read_text(encoding="utf-8"))
+        for manifest in (self.name_manifest, self.address_manifest):
+            if manifest.get("prefix") != "passage: ":
+                raise ValueError("E5 artifacts must use the required 'passage: ' prefix.")
+            if manifest.get("pooling") != "masked_mean" or manifest.get("normalize_l2") is not True:
+                raise ValueError("E5 artifacts must use masked mean pooling and L2 normalization.")
         if self.name_manifest.get("tables") != self.address_manifest.get("tables"):
             raise ValueError("E5 name/address manifests have different table row counts.")
         if self.name_manifest.get("dimension") != self.DIMENSION:
@@ -62,6 +67,18 @@ class E5EmbeddingStore:
         if self.name_manifest.get("dtype") != "float16":
             raise ValueError("E5 vectors must be fp16 on disk.")
         self.counts = {key: int(value) for key, value in self.name_manifest["tables"].items()}
+        self.split_tables = {
+            "train": ("train_s1", "train_s2", "train_s3"),
+            "test": ("test_s1", "test_s2", "test_s3"),
+        }
+        self.offsets = {}
+        self.split_counts = {}
+        for split, tables in self.split_tables.items():
+            offset = 0
+            for table in tables:
+                self.offsets[table] = offset
+                offset += self.counts[table]
+            self.split_counts[split] = offset
         self._arrays = {}
         self._np = np
 
@@ -69,30 +86,45 @@ class E5EmbeddingStore:
         """Attach stable input-row indexes after verifying sidecar ID alignment."""
         if table not in self.TABLE_CODES:
             raise ValueError(f"Unknown E5 table key: {table}")
-        sidecar = self.name_dir / f"{table}_ids.npy"
-        if not sidecar.is_file():
-            raise FileNotFoundError(f"Missing E5 entity ID sidecar: {sidecar}")
-        stored_ids = self._np.load(sidecar, mmap_mode="r", allow_pickle=False)
         source_ids = frame["entity_id"].to_numpy(dtype="S16")
-        if len(stored_ids) != len(frame) or not self._np.array_equal(stored_ids, source_ids):
-            raise ValueError(f"E5 ID order does not match {table}; refusing wrong-vector joins.")
-        frame["_e5_row_idx"] = self._np.arange(len(frame), dtype=self._np.int32)
+        split = table.split("_", 1)[0]
+        stem = f"{split}_names_ids.npy"
+        sidecars = (
+            self.name_dir / stem,
+            self.address_dir / f"{split}_addrs_ids.npy",
+        )
+        for sidecar in sidecars:
+            if not sidecar.is_file():
+                raise FileNotFoundError(f"Missing E5 entity ID sidecar: {sidecar}")
+            stored_ids = self._np.load(sidecar, mmap_mode="r", allow_pickle=False)
+            start = self.offsets[table]
+            expected = stored_ids[start:start + len(frame)]
+            if (len(expected) != len(frame)
+                    or not self._np.array_equal(expected, source_ids)):
+                raise ValueError(
+                    f"E5 ID order does not match {table} in {sidecar}; refusing wrong-vector joins."
+                )
+        frame["_e5_row_idx"] = (
+            self.offsets[table] + self._np.arange(len(frame), dtype=self._np.int32)
+        )
         frame["_e5_table_code"] = self.TABLE_CODES[table]
         return frame
 
     def _vectors(self, table: str, field: str):
-        key = (table, field)
+        if table not in self.TABLE_CODES:
+            raise ValueError(f"No row-count metadata for E5 table {table}.")
+        split = table.split("_", 1)[0]
+        key = (split, field)
         if key not in self._arrays:
-            if table not in self.counts:
-                raise ValueError(f"No row-count metadata for E5 table {table}.")
             root = self.name_dir if field == "name" else self.address_dir
-            suffix = "name" if field == "name" else "address"
-            path = root / f"{table}_{suffix}.npy"
+            filename = f"{split}_names.npy" if field == "name" else f"{split}_addrs.npy"
+            path = root / filename
             array = self._np.load(path, mmap_mode="r", allow_pickle=False)
-            expected = (self.counts[table], self.DIMENSION)
+            expected = (self.split_counts[split], self.DIMENSION)
             if array.shape != expected or array.dtype != self._np.float16:
                 raise ValueError(f"Invalid E5 array {path}: {array.shape} {array.dtype}; expected {expected} float16.")
-            self._arrays[key] = array
+            self._arrays[(split, field)] = array
+            key = (split, field)
         return self._arrays[key]
 
     def cosine_features(self, pairs_df, start: int, end: int):
@@ -109,15 +141,19 @@ class E5EmbeddingStore:
         if len(unique1) != 1:
             raise ValueError("A pair batch unexpectedly mixes Source-1 embedding tables.")
         table1 = next(key for key, value in self.TABLE_CODES.items() if value == int(unique1[0]))
+        split1 = table1.split("_", 1)[0]
         output = np.empty((end - start, len(E5_FEATURE_NAMES)), dtype=np.float32)
         for code in np.unique(table2_codes):
             table2 = next(key for key, value in self.TABLE_CODES.items() if value == int(code))
+            split2 = table2.split("_", 1)[0]
+            if split1 != split2:
+                raise ValueError("A pair batch unexpectedly mixes train/test embedding arrays.")
             local = np.flatnonzero(table2_codes == code)
             left_indices = idx1[local]
             right_indices = idx2[local]
             if (left_indices.min(initial=0) < 0 or right_indices.min(initial=0) < 0
-                    or left_indices.max(initial=-1) >= self.counts[table1]
-                    or right_indices.max(initial=-1) >= self.counts[table2]):
+                    or left_indices.max(initial=-1) >= self.split_counts[split1]
+                    or right_indices.max(initial=-1) >= self.split_counts[split2]):
                 raise IndexError(f"E5 row index out of range for {table1} -> {table2}.")
             for column, field in enumerate(("name", "address")):
                 left = self._vectors(table1, field)[left_indices]
