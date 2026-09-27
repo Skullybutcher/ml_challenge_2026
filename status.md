@@ -1,4 +1,4 @@
-# Latest status summary — 2026-09-27, 08:18 IST
+# Latest status summary — 2026-09-27, 08:54 IST
 
 ## Run 1 (completed; launch gates PASS)
 
@@ -13,12 +13,12 @@
 - Commit `0d4575d` adds the 5,509,855 aligned labels and `(s1_id, other_id)` pairs exported from saved chunks. The artifact manifest records this limitation. No split threshold is claimed or adopted yet.
 - After Run 2 completes, regenerate raw OOF probabilities from the saved Run 1 feature checkpoints, compute the full grid and requested source/singleton splits, then record the E4 result here and in `SUBMISSIONS.md` before choosing a submission threshold.
 
-## Run 2 (test inference; last verified 08:18 IST)
+## Run 2 (test inference; last verified 08:54 IST)
 
-- Training featurization completed **40/40 chunks** at 07:12:07. Grouped OOF training, calibration, and threshold selection completed. Test inference began at 07:16:17; the first 100k-S1 test chunk has not yet logged completion, and `candidate_pairs.tsv` is still 0 bytes. The Python worker remains responsive and its cumulative CPU time increased from 16,793 s at 08:09 to 17,295 s at 08:18, confirming ongoing compute. `run_full.exit` and the tripwire marker are absent.
+- Training featurization completed **40/40 chunks** at 07:12:07. Grouped OOF training, calibration, and threshold selection completed. Test inference began at 07:16:17; the first 100k-S1 test chunk has not yet logged completion, and `candidate_pairs.tsv` is still 0 bytes. The Python worker remains responsive and its cumulative CPU time increased from 17,295 s at 08:18 to 19,424 s at 08:54, confirming ongoing compute. `run_full.exit` and the tripwire marker are absent.
 - Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. OOF macro F0.5: **0.9761** (passes 0.970 gate, below 0.988 decision threshold and Run 1's 0.9825). The printed top-eight curve: **0.65:0.9771, 0.62:0.9771, 0.60:0.9771, 0.68:0.9771, 0.70:0.9770, 0.57:0.9770, 0.55:0.9770, 0.72:0.9768**. Wrapper-selected Run 2 plateau threshold: **0.800**, score **0.9761**.
 - Submission threshold decision is **pending E4**: per the current rule, because Run 2 OOF <0.988, adopt an E4 split threshold only if its gain is ≥0.001; otherwise use Run 1's 0.72. Run 2 inference is currently using 0.800, so its outputs are provisional until the threshold decision is resolved.
-- At 08:18:07, process-tree RSS was **30.52 GB** (peak **33.28 GB**); system use **43.66 GB** (peak **46.74 GB**). Latest GPU sample at 08:18:04 was **42°C**. Current use is below watchdog limits; the historical system peak remains 0.26 GB below the 47 GB stop limit. A supported CPU-package sensor is unavailable.
+- At 08:54:24, process-tree RSS was **32.68 GB** (peak **33.28 GB**); system use **45.68 GB** (peak **46.74 GB**). Latest GPU sample at 08:54:12 was **41°C**. Current use remains below watchdog limits; the historical system peak remains 0.26 GB below the 47 GB stop limit. A supported CPU-package sensor is unavailable.
 - The initial watcher only checked test chunk 1. It has been replaced with `watch_run_full_tripwire_all.ps1`, which checks each completed test-chunk log line against the same 50M limit and stops the Run 2 process tree only if a chunk exceeds it. Verified watcher PID is recorded in `run_full.tripwire.pid`; the original Run 2 launcher/worker remain alive.
 Detailed chronological Run 1 and Run 2 history follows.
 
