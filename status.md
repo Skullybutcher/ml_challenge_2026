@@ -570,3 +570,9 @@ At 13:56 IST, current process-tree RSS was 13.48 GB (peak 18.02 GB), system memo
 Test chunk 2/278 completed at 14:23:14 IST with 33,651,377 pairs and 2,132.1 seconds runtime; cumulative matched S1 count is 12,392. It passed the 50M all-chunk tripwire. Run 2 remains active; chunks 1-2 are complete, with 276 test chunks remaining. The 41 training checkpoints remain unchanged; the candidate output is incomplete and has not been validated.
 
 At 14:26 IST, process-tree RSS was 15.93 GB (peak 18.02 GB), system memory was 30.17 GB (peak 31.93 GB), and RTX 5070 Ti temperature was 45°C. The process, memory watchdog, all-chunk tripwire, and GPU watcher are active; no exit or tripwire marker is present. The current OOF result remains 0.9761 at threshold 0.800, below Aman's 0.99047 leaderboard target. No leaderboard upload occurred.
+
+## Run 2 test inference chunk 3 completed (2026-09-27, 15:11 IST)
+
+Test chunk 3/278 completed at 14:59:40 IST with 34,371,585 pairs, 6,193 newly matched S1s, and 2,185.1 seconds runtime; cumulative matched S1 count is 18,585. It passed the 50M all-chunk tripwire. Chunk 4 is now in progress; 275 chunks remain. Candidate output advanced to 1,314,172,352 bytes at the chunk completion time and remains incomplete and unvalidated. All 41 Run 2 training checkpoint files remain intact.
+
+At 15:11 IST, the process and memory/GPU/tripwire watchers were alive. Process-tree RSS was 13.87 GB (peak 18.02 GB), system memory use was 28.47 GB (peak 31.93 GB), and RTX 5070 Ti temperature was 44°C. No exit, tripwire, or thermal marker is present. CPU-package temperature remains unavailable from a supported sensor. Run 2's OOF macro F0.5 remains 0.9761 at selected threshold 0.800, below the reported 0.99047 leaderboard target; test inference is incomplete, so no validated score exists. No leaderboard upload occurred.
