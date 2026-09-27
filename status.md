@@ -474,3 +474,9 @@ Training chunks 15-17 completed at 05:44:15, 05:49:04, and 05:53:46. Chunk 15 ha
 
 Run 2 candidate recall remains 0.9752 overall and 0.9911 for US (n=60,078); India n=0 excluded. At 05:57, process-tree RSS was 13.61 GB and system use was 27.87 GB; peaks remain 17.83 / 31.88 GB. GPU was 42°C. No failure or watchdog/tripwire event occurred; test inference has not begun.
 
+## Run 2 progress (2026-09-27, 06:13 IST)
+
+Training chunks 18-21 completed at 05:58:30, 06:03:07, 06:07:42, and 06:12:09. They contained 3,703,612 / 3,707,528 / 3,848,939 / 3,694,685 candidate pairs before subsampling and retained 133,758 / 136,679 / 137,713 / 135,148 rows (8,305 / 8,469 / 8,578 / 8,382 positives). Twenty-one resumable checkpoints are present; the launcher is alive and run_full.exit is absent.
+
+Run 2 candidate recall remains 0.9752 overall and 0.9911 for US (n=60,078); India n=0 excluded. At 06:13, process-tree RSS was 12.88 GB and system use was 27.24 GB; peaks remain 17.83 / 31.88 GB. GPU was 42°C. No failure or watchdog/tripwire event occurred; test inference has not begun.
+
