@@ -1,4 +1,4 @@
-# Latest status summary — 2026-09-27, 07:15 IST
+# Latest status summary — 2026-09-27, 07:30 IST
 
 ## Run 1 (completed; launch gates PASS)
 
@@ -13,12 +13,12 @@
 - Commit `0d4575d` adds the 5,509,855 aligned labels and `(s1_id, other_id)` pairs exported from saved chunks. The artifact manifest records this limitation. No split threshold is claimed or adopted yet.
 - After Run 2 completes, regenerate raw OOF probabilities from the saved Run 1 feature checkpoints, compute the full grid and requested source/singleton splits, then record the E4 result here and in `SUBMISSIONS.md` before choosing a submission threshold.
 
-## Run 2 (grouped OOF model training; last verified 07:15 IST)
+## Run 2 (test inference; last verified 07:30 IST)
 
-- Training featurization: **40/40 chunks checkpointed**, latest chunk 40 completed at 07:12:07. The pipeline has entered `Training GBDT with GroupKFold`; OOF/curve and test inference are not yet complete. Launcher and memory, tripwire, and GPU guards are alive; `run_full.exit` and `run_full.tripwire` are absent.
-- Final chunks: 38/40 at 07:08:08, 3,719,611 → 136,745 (8,498 positives); 39/40 at 07:10:11, 3,634,290 → 135,562 (8,405); 40/40 at 07:12:07, 3,713,028 → 136,716 (8,494).
-- Featurization totals: **147,631,526** candidate pairs before subsampling, **5,434,674** retained pairs, **337,081** positives. Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded.
-- At 07:15:22, process-tree RSS was **8.67 GB** (peak **17.83 GB**); system use **23.19 GB** (peak **31.88 GB**). Latest GPU sample at 07:15:18 was **43°C**. A supported CPU-package sensor is unavailable.
+- Training featurization completed **40/40 chunks** at 07:12:07. Grouped OOF training, calibration, and threshold selection completed. Test inference began at 07:16:17; the first 100k-S1 test chunk has not yet logged completion. Pair tripwire is armed, with no tripwire marker; `run_full.exit` is absent.
+- Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. OOF macro F0.5: **0.9761** (passes 0.970 gate, below 0.988 decision threshold and Run 1's 0.9825). The printed top-eight curve: **0.65:0.9771, 0.62:0.9771, 0.60:0.9771, 0.68:0.9771, 0.70:0.9770, 0.57:0.9770, 0.55:0.9770, 0.72:0.9768**. Wrapper-selected Run 2 plateau threshold: **0.800**, score **0.9761**.
+- Submission threshold decision is **pending E4**: per the current rule, because Run 2 OOF <0.988, adopt an E4 split threshold only if its gain is ≥0.001; otherwise use Run 1's 0.72. Run 2 inference is currently using 0.800, so its outputs are provisional until the threshold decision is resolved.
+- At 07:30:21, process-tree RSS was **28.81 GB** (peak **33.28 GB**); system use **42.31 GB** (peak **46.74 GB**). Latest GPU sample at 07:30:22 was **42°C**. Current use is below watchdog limits but the system peak is close to the 47 GB stop limit. A supported CPU-package sensor is unavailable.
 Detailed chronological Run 1 and Run 2 history follows.
 
 # Status — Akari business entity resolution
