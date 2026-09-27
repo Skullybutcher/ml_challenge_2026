@@ -1,4 +1,4 @@
-# Latest status summary — 2026-09-27, 06:40 IST
+# Latest status summary — 2026-09-27, 06:45 IST
 
 ## Run 1 (completed; launch gates PASS)
 
@@ -9,13 +9,18 @@
 - Plateau pick: **0.72**, the highest displayed threshold within 0.001 of best (0.0003 below the best score). The persisted log contains only the top eight, so 0.72 is the highest qualifying displayed point, not a verified maximum over the full grid.
 - Gates used to launch Run 2: **PASS** (recall ≥0.95; OOF ≥0.970; threshold curve printed). Peak was **31.49 GB process tree / 45.66 GB system**.
 
-## Run 2 (running; last verified 06:40 IST)
+## Run 2 (running; last verified 06:45 IST)
 
-- Training featurization: **28/40 chunks checkpointed** (latest chunk 28 completed at 06:39:41). Launcher and watchdogs are alive; no exit, error, or tripwire marker.
+- Training featurization: **29/40 chunks checkpointed** (latest chunk 29 completed at 06:43:14). Launcher and watchdogs are alive; no exit, error, or tripwire marker.
 - Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. This passes the recall gate.
 - Run 2 OOF and its threshold curve are **pending** until model training begins after all 40 feature chunks. Therefore the Run 2 OOF/curve gates are not yet evaluated.
-- At 06:40, process-tree RSS was 11.67 GB (peak 17.83 GB); system use was 26.02 GB (peak 31.88 GB); GPU was 42°C.
+- At 06:45:19, process-tree RSS was 11.23 GB (peak 17.83 GB); system use was 25.62 GB (peak 31.88 GB); the latest GPU sample at 06:45:11 was 43°C. CPU package temperature is unavailable from a supported sensor.
 
+## Run 2 progress — 2026-09-27, 06:45 IST
+
+- Chunk 29/40 completed at 06:43:14: 3,704,030 pairs → 136,072 retained (8,421 positives); the checkpoint directory contains 29 completed chunk checkpoints.
+- Run 2 candidate recall remains 0.9752 overall and 0.9911 US (n=60,078); India has n=0 and is excluded. OOF and threshold curve remain pending until model training after all 40 feature chunks.
+- Launcher and all three guards are alive. `run_full.exit` and the >50M-pair tripwire marker are absent. At 06:45:19, tree RSS was 11.23 GB (peak 17.83 GB), system use 25.62 GB (peak 31.88 GB), and GPU was 43°C at the latest 06:45:11 sample.
 Detailed chronological Run 1 and Run 2 history follows.
 
 # Status — Akari business entity resolution
