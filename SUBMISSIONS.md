@@ -18,3 +18,7 @@ Run 1's best grid point was threshold 0.625 at OOF macro F0.5 0.9825. Its displa
 ## Deadline score note (2026-09-27)
 
 Aman reports the current leaderboard top as **0.9918**. Run 2's OOF macro F0.5 is **0.9761**, which is a cross-validation metric and not a verified test or leaderboard score. Test inference is incomplete (chunks 1-3 of 278 complete at the latest check); there is no validator PASS, exact 1,732,544-row output, READY-TO-SUBMIT entry, or leaderboard upload. The proposed 8-worker shortcut was not used: its supplied script lacks model loading, worker dispatch/output merging, and exact-output parity, conflicts with the six-worker/48 GB experiment limits, and would restart inference from chunk 1 if it replaced the current writer.
+
+## France threshold proposal (not adopted)
+
+A France-specific 0.95 threshold was proposed, with an asserted singleton-rate rationale and score gain. The current artifacts do not contain Run 2 OOF probabilities, serialized models, or test candidate probabilities needed to validate that claim; `candidate_pairs.tsv` contains candidate IDs only. The suggested code is not a drop-in script, and it uses 0.72 for non-France S1s rather than Run 2's selected 0.800. No France threshold or heuristic post-processing has been applied. Run 2 inference remains on its frozen 0.800 threshold; no submission decision is changed without measured OOF evidence.
