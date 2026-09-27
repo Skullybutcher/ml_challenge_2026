@@ -1,3 +1,30 @@
+# Current status — 2026-09-27 16:52 IST
+
+This live snapshot supersedes older status summaries below; detailed prior entries are retained as history.
+
+## Run outcomes
+
+- **Run 1 completed:** OOF macro F0.5 **0.9825**. Logged top-eight threshold scores are 0.62:0.9825, 0.65:0.9825, 0.57:0.9825, 0.60:0.9825, 0.68:0.9824, 0.70:0.9824, 0.55:0.9823, 0.72:0.9822. The selected global plateau threshold is **0.72**.
+- **E4 source/singleton threshold comparison is not established.** Run 1 saved aligned labels and pair IDs, but did not save raw OOF probabilities or the full 37-point curve. There are no France S1 examples in the training slice, so the France threshold has no direct OOF validation here.
+- **Run 2 was stopped at Aman’s direction at 16:03 IST.** Four of 278 inference chunks had completed; the partial candidate file was preserved locally. All 41 training checkpoint files remain. OOF macro F0.5 was **0.9761** at 0.800; this is below Run 1’s 0.9825. No Run 2 output passed validation, and there is no active Run 2 process.
+
+## E5 implementation and pilot
+
+- Installed an isolated Python 3.11/CUDA runtime under D:/mlc_e5_runtime; downloaded and loaded intfloat/e5-large-v2 at pinned revision f169b11e22de13617baa190a028a32f3493550b6. The RTX 5070 Ti is visible to CUDA.
+- Added resumable, per-table fp16 embedding generation in generate_embeddings.py, plus opt-in name/address cosine features and country-threshold options in the pipeline. Full embedding generation has **not started yet**.
+- Completed a pilot across all six train/test source tables: 8,192 rows per table, name and address vectors shaped (8,192, 1,024), fp16, with aligned ID sidecars. Pilot checks passed for shape, dtype, finite values, unit norms, two-row feature construction, and first-8,192-ID alignment against all six source-table prefixes.
+- The pilot’s GPU cooldown guard paused at 78°C, resumed after cooling to 48°C, and completed; observed process-tree memory was about 1.48 GB. A feature-path defect that deleted the pair frame before reading country labels was fixed. The four changed Python files compile under the existing Python 3.11 project environment.
+- Approximate full output is 49.6 GB for names and 49.6 GB for addresses, split across C: and E:. At the last disk check, C: had 100.7 GB free and E: 82.3 GB free. These are estimates; continue monitoring free space and memory during generation.
+- France threshold 0.95 / other-country threshold 0.65 remains an **unvalidated experiment**, not a submission decision. It must be evaluated against OOF evidence where available; no score gain is claimed. E5 retraining, test inference, validation, or submission staging have not happened.
+
+## Immediate next steps
+
+1. Commit and push the E5 generator/integration code plus this status snapshot to exp/run1-2500-a467-20260926; keep datasets, embeddings, model weights, run logs, and training checkpoints out of Git.
+2. Start resumable full embedding generation to the separate C:/E: output roots and monitor GPU temperature, memory, and disk space.
+3. Retrain/evaluate with --use-e5 only after all required vectors are complete. Keep outputs provisional until OOF/threshold evaluation and the documented validator pass; never upload to the leaderboard.
+
+---
+
 # Latest status summary — 2026-09-27, 09:47 IST
 
 ## Run 1 (completed; launch gates PASS)

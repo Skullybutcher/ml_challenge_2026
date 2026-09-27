@@ -100,6 +100,7 @@ def cap_candidates_per_s1(cand_s2: Dict[str, Set[str]], cand_s3: Dict[str, Set[s
         cand_s3[eid] = keep_set & s3_set
         per_s1_counts[eid] = len(keep_set)
     return per_s1_counts
+import features as features_module
 from features import build_feature_frame_vectorized, FEATURE_NAMES
 from model import train_oof, calibrate_oof, tune_threshold, predict_with_models
 
@@ -161,10 +162,21 @@ def build_pair_frame(s1_df, other_df, candidates: Dict[str, Set[str]]) -> pd.Dat
         return pd.DataFrame(columns=["s1_id", "other_id", "name1", "addr1", "country1",
                                       "name2", "addr2", "country2"])
     pairs = pd.DataFrame({"s1_id": s1_ids, "other_id": other_ids})
-    s1_cols = s1_df[["entity_id", "_norm_name", "_norm_addr", "country"]].rename(
-        columns={"entity_id": "s1_id", "_norm_name": "name1", "_norm_addr": "addr1", "country": "country1"})
-    other_cols = other_df[["entity_id", "_norm_name", "_norm_addr", "country"]].rename(
-        columns={"entity_id": "other_id", "_norm_name": "name2", "_norm_addr": "addr2", "country": "country2"})
+    s1_columns = ["entity_id", "_norm_name", "_norm_addr", "country"]
+    other_columns = ["entity_id", "_norm_name", "_norm_addr", "country"]
+    e5_enabled = "_e5_row_idx" in s1_df.columns and "_e5_row_idx" in other_df.columns
+    if e5_enabled:
+        s1_columns += ["_e5_row_idx", "_e5_table_code"]
+        other_columns += ["_e5_row_idx", "_e5_table_code"]
+    s1_rename = {"entity_id": "s1_id", "_norm_name": "name1",
+                 "_norm_addr": "addr1", "country": "country1"}
+    other_rename = {"entity_id": "other_id", "_norm_name": "name2",
+                    "_norm_addr": "addr2", "country": "country2"}
+    if e5_enabled:
+        s1_rename.update({"_e5_row_idx": "_e5_row1", "_e5_table_code": "_e5_table1"})
+        other_rename.update({"_e5_row_idx": "_e5_row2", "_e5_table_code": "_e5_table2"})
+    s1_cols = s1_df[s1_columns].rename(columns=s1_rename)
+    other_cols = other_df[other_columns].rename(columns=other_rename)
     return pairs.merge(s1_cols, on="s1_id", how="left").merge(other_cols, on="other_id", how="left")
 
 
@@ -248,7 +260,26 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         train_chunk_size: int | None = 5000, skip_test: bool = False,
         max_pairs_per_s1: int = 0, use_rare: bool = False,
         rare_min_len: int = 6, rare_max_df: int = 2000,
-        resume_train_chunks: bool = False) -> None:
+        resume_train_chunks: bool = False, use_e5: bool = False,
+        e5_name_dir: str | None = None, e5_address_dir: str | None = None,
+        france_threshold: float | None = None,
+        other_country_threshold: float | None = None) -> None:
+    global FEATURE_NAMES
+    e5_store = None
+    if use_e5:
+        if not e5_name_dir or not e5_address_dir:
+            raise ValueError("--use-e5 requires both --e5-name-dir and --e5-address-dir.")
+        features_module.enable_e5_features()
+        FEATURE_NAMES = features_module.FEATURE_NAMES
+        e5_store = features_module.E5EmbeddingStore(e5_name_dir, e5_address_dir)
+        log("E5 features enabled; name/address memmaps will be read by verified input-row index.")
+    if (france_threshold is None) != (other_country_threshold is None):
+        raise ValueError("France and other-country thresholds must be set together.")
+    if france_threshold is not None:
+        if not (0.0 <= france_threshold <= 1.0 and 0.0 <= other_country_threshold <= 1.0):
+            raise ValueError("Country-specific probability thresholds must be in [0, 1].")
+        log(f"Country-specific inference thresholds enabled: France={france_threshold:.3f}, "
+            f"other={other_country_threshold:.3f}.")
     os.makedirs(out_dir, exist_ok=True)
     rss = PeakRSSSampler(interval=30.0)
     rss.start()
@@ -306,6 +337,9 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
     s1_tr = load_source(os.path.join(data_dir, "train", "train_source1.tsv"), "S1-")
     s2_tr = load_source(os.path.join(data_dir, "train", "train_source2.tsv"), "S2-")
     s3_tr = load_source(os.path.join(data_dir, "train", "train_source3.tsv"), "S3-")
+    if e5_store is not None:
+        for frame, table in ((s1_tr, "train_s1"), (s2_tr, "train_s2"), (s3_tr, "train_s3")):
+            e5_store.attach(frame, table)
     gt = load_ground_truth(os.path.join(data_dir, "train", "train_ground_truth.tsv"))
     validate_ground_truth_refs(gt, set(s1_tr.entity_id), set(s2_tr.entity_id), set(s3_tr.entity_id))
     log(f"Train sizes: S1={len(s1_tr)} S2={len(s2_tr)} S3={len(s3_tr)} | "
@@ -332,6 +366,9 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         s1_te = load_source(os.path.join(data_dir, "test", "test_source1.tsv"), "S1-")
         s2_te = load_source(os.path.join(data_dir, "test", "test_source2.tsv"), "S2-")
         s3_te = load_source(os.path.join(data_dir, "test", "test_source3.tsv"), "S3-")
+        if e5_store is not None:
+            for frame, table in ((s1_te, "test_s1"), (s2_te, "test_s2"), (s3_te, "test_s3")):
+                e5_store.attach(frame, table)
         log(f"Test sizes: S1={len(s1_te)} S2={len(s2_te)} S3={len(s3_te)} | "
             f"test countries={sorted(s1_te.country.unique())}")
 
@@ -508,7 +545,7 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         for i in range(lo, hi):
             other_lists_all[i] = []
         n_pre = len(pairs_tr)
-        feat_df = build_feature_frame_vectorized(pairs_tr)
+        feat_df = build_feature_frame_vectorized(pairs_tr, e5_store=e5_store)
         del pairs_tr
         labels = np.array([1 if o in gt.get(s, set()) else 0
                            for s, o in zip(feat_df["s1_id"].to_numpy(),
@@ -591,14 +628,22 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
             c_s3 = block(s1_chunk, s3_te)
             pairs_te = pd.concat([build_pair_frame(s1_chunk, s2_te, c_s2),
                                   build_pair_frame(s1_chunk, s3_te, c_s3)], ignore_index=True)
-            feat_te = build_feature_frame_vectorized(pairs_te)
-            del pairs_te
+            feat_te = build_feature_frame_vectorized(pairs_te, e5_store=e5_store)
             if len(feat_te) > 0:
                 probs = iso.predict(predict_with_models(models, feat_te[FEATURE_NAMES].to_numpy()))
-                keep = probs >= best_t
+                if france_threshold is None:
+                    keep = probs >= best_t
+                else:
+                    countries = pairs_te["country1"].fillna("").astype(str).to_numpy()
+                    row_thresholds = np.where(
+                        np.char.lower(np.char.strip(countries)) == "france",
+                        france_threshold, other_country_threshold,
+                    )
+                    keep = probs >= row_thresholds
                 for s1_id, other_id in zip(feat_te["s1_id"].to_numpy()[keep],
                                            feat_te["other_id"].to_numpy()[keep]):
                     matches[s1_id].add(other_id)
+            del pairs_te
             # Task 3: stream candidates straight to disk, one row per S1.
             s1_chunk_ids = s1_chunk["entity_id"].tolist()
             s1_chunk_set = set(s1_chunk_ids)
@@ -655,6 +700,16 @@ def main():
                     help="min token length for the rescue channel (default 6)")
     ap.add_argument("--rare-max-df", type=int, default=2000,
                     help="upper df bound of the rescue band (default 2000)")
+    ap.add_argument("--use-e5", action="store_true",
+                    help="append name/address E5 cosine features from completed fp16 memmaps")
+    ap.add_argument("--e5-name-dir", default=None,
+                    help="directory written by generate_embeddings.py --name-out")
+    ap.add_argument("--e5-address-dir", default=None,
+                    help="directory written by generate_embeddings.py --address-out")
+    ap.add_argument("--france-threshold", type=float, default=None,
+                    help="optional calibrated probability threshold for France S1 rows")
+    ap.add_argument("--other-country-threshold", type=float, default=None,
+                    help="required with --france-threshold; threshold for all other S1 rows")
     ap.add_argument("--validate", action="store_true",
                     help="also run utils/validate_submission.py if found alongside --data-dir")
     args = ap.parse_args()
@@ -669,7 +724,11 @@ def main():
         max_pairs_per_s1=args.max_pairs_per_s1,
         use_rare=args.use_rare, rare_min_len=args.rare_min_len,
         rare_max_df=args.rare_max_df,
-        resume_train_chunks=args.resume_train_chunks)
+        resume_train_chunks=args.resume_train_chunks,
+        use_e5=args.use_e5, e5_name_dir=args.e5_name_dir,
+        e5_address_dir=args.e5_address_dir,
+        france_threshold=args.france_threshold,
+        other_country_threshold=args.other_country_threshold)
 
     if args.validate:
         validator = os.path.join(args.data_dir, "utils", "validate_submission.py")

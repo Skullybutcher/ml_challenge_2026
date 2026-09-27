@@ -6,13 +6,15 @@ fast over large candidate sets on Kaggle CPU.
 from __future__ import annotations
 import os
 import hashlib
+import json
 import sys
+from pathlib import Path
 from typing import Dict, List
 
 from rapidfuzz import fuzz
 from normalize import tokens, rare_tokens
 
-FEATURE_NAMES = [
+BASE_FEATURE_NAMES = [
     "name_levenshtein_ratio", "name_token_sort_ratio", "name_partial_ratio",
     "name_jaccard", "name_len_diff", "name_char_bigram_jaccard",
     "addr_levenshtein_ratio", "addr_token_sort_ratio",
@@ -21,6 +23,111 @@ FEATURE_NAMES = [
     "rare_token_overlap", "rare_token_union_size",
     "name_first_token_match",
 ]
+E5_FEATURE_NAMES = ["e5_name_cosine", "e5_address_cosine"]
+FEATURE_NAMES = list(BASE_FEATURE_NAMES)
+
+
+def enable_e5_features() -> None:
+    """Enable the two opt-in E5 cosine columns for this pipeline process."""
+    global FEATURE_NAMES
+    FEATURE_NAMES = list(BASE_FEATURE_NAMES) + list(E5_FEATURE_NAMES)
+
+
+class E5EmbeddingStore:
+    """Read-only, lazily opened table memmaps produced by generate_embeddings.py."""
+
+    TABLE_CODES = {
+        "train_s1": 0, "train_s2": 1, "train_s3": 2,
+        "test_s1": 3, "test_s2": 4, "test_s3": 5,
+    }
+    DIMENSION = 1024
+
+    def __init__(self, name_dir: str | os.PathLike, address_dir: str | os.PathLike):
+        import numpy as np
+
+        self.name_dir = Path(name_dir)
+        self.address_dir = Path(address_dir)
+        name_manifest_path = self.name_dir / "e5_embeddings_manifest.json"
+        address_manifest_path = self.address_dir / "e5_embeddings_manifest.json"
+        if not name_manifest_path.is_file() or not address_manifest_path.is_file():
+            raise FileNotFoundError(
+                "Both E5 manifests are required; embedding generation must finish first."
+            )
+        self.name_manifest = json.loads(name_manifest_path.read_text(encoding="utf-8"))
+        self.address_manifest = json.loads(address_manifest_path.read_text(encoding="utf-8"))
+        if self.name_manifest.get("tables") != self.address_manifest.get("tables"):
+            raise ValueError("E5 name/address manifests have different table row counts.")
+        if self.name_manifest.get("dimension") != self.DIMENSION:
+            raise ValueError("E5 embedding dimension must be 1024.")
+        if self.name_manifest.get("dtype") != "float16":
+            raise ValueError("E5 vectors must be fp16 on disk.")
+        self.counts = {key: int(value) for key, value in self.name_manifest["tables"].items()}
+        self._arrays = {}
+        self._np = np
+
+    def attach(self, frame, table: str):
+        """Attach stable input-row indexes after verifying sidecar ID alignment."""
+        if table not in self.TABLE_CODES:
+            raise ValueError(f"Unknown E5 table key: {table}")
+        sidecar = self.name_dir / f"{table}_ids.npy"
+        if not sidecar.is_file():
+            raise FileNotFoundError(f"Missing E5 entity ID sidecar: {sidecar}")
+        stored_ids = self._np.load(sidecar, mmap_mode="r", allow_pickle=False)
+        source_ids = frame["entity_id"].to_numpy(dtype="S16")
+        if len(stored_ids) != len(frame) or not self._np.array_equal(stored_ids, source_ids):
+            raise ValueError(f"E5 ID order does not match {table}; refusing wrong-vector joins.")
+        frame["_e5_row_idx"] = self._np.arange(len(frame), dtype=self._np.int32)
+        frame["_e5_table_code"] = self.TABLE_CODES[table]
+        return frame
+
+    def _vectors(self, table: str, field: str):
+        key = (table, field)
+        if key not in self._arrays:
+            if table not in self.counts:
+                raise ValueError(f"No row-count metadata for E5 table {table}.")
+            root = self.name_dir if field == "name" else self.address_dir
+            suffix = "name" if field == "name" else "address"
+            path = root / f"{table}_{suffix}.npy"
+            array = self._np.load(path, mmap_mode="r", allow_pickle=False)
+            expected = (self.counts[table], self.DIMENSION)
+            if array.shape != expected or array.dtype != self._np.float16:
+                raise ValueError(f"Invalid E5 array {path}: {array.shape} {array.dtype}; expected {expected} float16.")
+            self._arrays[key] = array
+        return self._arrays[key]
+
+    def cosine_features(self, pairs_df, start: int, end: int):
+        """Compute float32 name/address cosine scores for one bounded pair batch."""
+        import numpy as np
+
+        table1_codes = pairs_df["_e5_table1"].to_numpy(dtype=np.int8)[start:end]
+        table2_codes = pairs_df["_e5_table2"].to_numpy(dtype=np.int8)[start:end]
+        idx1 = pairs_df["_e5_row1"].to_numpy(dtype=np.int32)[start:end]
+        idx2 = pairs_df["_e5_row2"].to_numpy(dtype=np.int32)[start:end]
+        if len(table1_codes) == 0:
+            return np.empty((0, len(E5_FEATURE_NAMES)), dtype=np.float32)
+        unique1 = np.unique(table1_codes)
+        if len(unique1) != 1:
+            raise ValueError("A pair batch unexpectedly mixes Source-1 embedding tables.")
+        table1 = next(key for key, value in self.TABLE_CODES.items() if value == int(unique1[0]))
+        output = np.empty((end - start, len(E5_FEATURE_NAMES)), dtype=np.float32)
+        for code in np.unique(table2_codes):
+            table2 = next(key for key, value in self.TABLE_CODES.items() if value == int(code))
+            local = np.flatnonzero(table2_codes == code)
+            left_indices = idx1[local]
+            right_indices = idx2[local]
+            if (left_indices.min(initial=0) < 0 or right_indices.min(initial=0) < 0
+                    or left_indices.max(initial=-1) >= self.counts[table1]
+                    or right_indices.max(initial=-1) >= self.counts[table2]):
+                raise IndexError(f"E5 row index out of range for {table1} -> {table2}.")
+            for column, field in enumerate(("name", "address")):
+                left = self._vectors(table1, field)[left_indices]
+                right = self._vectors(table2, field)[right_indices]
+                output[local, column] = np.einsum(
+                    "ij,ij->i", left, right, dtype=np.float32,
+                    casting="unsafe", optimize=True,
+                )
+                del left, right
+        return output
 
 
 def _char_bigrams(s: str) -> set:
@@ -99,15 +206,19 @@ def build_feature_frame(pairs: List[Dict]) -> "pandas.DataFrame":
             p["name2"], p["addr2"], p["country2"],
         )
         rows.append([p["s1_id"], p["other_id"]] + feats)
-    return pd.DataFrame(rows, columns=["s1_id", "other_id"] + FEATURE_NAMES)
+    return pd.DataFrame(rows, columns=["s1_id", "other_id"] + BASE_FEATURE_NAMES)
 
 
-def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.DataFrame":
+def build_feature_frame_vectorized(
+    pairs_df: "pandas.DataFrame", e5_store: E5EmbeddingStore | None = None
+) -> "pandas.DataFrame":
     """Vectorized-merge friendly: columns s1_id, other_id, name1/addr1/country1, name2/addr2/country2."""
     import numpy as np
     import pandas as pd
+    feature_names = FEATURE_NAMES if e5_store is not None else BASE_FEATURE_NAMES
+    feature_count = len(BASE_FEATURE_NAMES) + (len(E5_FEATURE_NAMES) if e5_store is not None else 0)
     if len(pairs_df) == 0:
-        return pd.DataFrame(columns=["s1_id", "other_id"] + FEATURE_NAMES)
+        return pd.DataFrame(columns=["s1_id", "other_id"] + feature_names)
     # Merge results can contain non-string scalars even though source TSVs are
     # loaded as text. The scalar feature functions require strings (for example,
     # _char_bigrams slices each value), so enforce that contract after filling
@@ -121,7 +232,7 @@ def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.Data
     # Keep NumPy's nested-sequence conversion bounded when a candidate chunk
     # contains millions of pairs. This also preserves a predictable peak while
     # retaining the original scalar feature computation and ordering.
-    feat_array = np.empty((len(pairs_df), len(FEATURE_NAMES)), dtype=np.float32)
+    feat_array = np.empty((len(pairs_df), feature_count), dtype=np.float32)
     batch_size = 100_000
     trace_batches = os.environ.get("AKARI_TRACE_FEATURE_BATCHES") == "1"
     for start in range(0, len(pairs_df), batch_size):
@@ -181,15 +292,19 @@ def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.Data
             raise
         del batch_inputs, batch_columns
         batch_array = np.asarray(batch, dtype=np.float32)
-        if batch_array.shape != (end - start, len(FEATURE_NAMES)):
+        if batch_array.shape != (end - start, len(BASE_FEATURE_NAMES)):
             raise ValueError(
                 f"Feature batch shape {batch_array.shape}; expected "
-                f"({end - start}, {len(FEATURE_NAMES)})"
+                f"({end - start}, {len(BASE_FEATURE_NAMES)})"
             )
-        feat_array[start:end] = batch_array
+        feat_array[start:end, :len(BASE_FEATURE_NAMES)] = batch_array
+        if e5_store is not None:
+            feat_array[start:end, len(BASE_FEATURE_NAMES):] = e5_store.cosine_features(
+                pairs_df, start, end
+            )
         if trace_batches:
             print(f"[FEATURES] done rows={start}:{end} total={len(pairs_df):,}", flush=True)
-    out = pd.DataFrame(feat_array, columns=FEATURE_NAMES)
+    out = pd.DataFrame(feat_array, columns=feature_names)
     out.insert(0, "s1_id", pairs_df["s1_id"].to_numpy())
     out.insert(1, "other_id", pairs_df["other_id"].to_numpy())
     return out

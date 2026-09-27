@@ -15,7 +15,7 @@ from sklearn.isotonic import IsotonicRegression
 import lightgbm as lgb
 
 from metric import macro_f05
-from features import FEATURE_NAMES
+import features as features_module
 
 
 def make_sample_weights(s1_ids: pd.Series) -> np.ndarray:
@@ -51,7 +51,7 @@ def train_oof(
         params.update(lgb_params)
 
     groups = feat_df["s1_id"].to_numpy()
-    X = feat_df[FEATURE_NAMES].to_numpy()
+    X = feat_df[features_module.FEATURE_NAMES].to_numpy()
     weights = make_sample_weights(feat_df["s1_id"])
 
     gkf = GroupKFold(n_splits=n_splits)
