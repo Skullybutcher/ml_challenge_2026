@@ -1,0 +1,4 @@
+tripwire start root=32000 limit_pairs=50000000 time=2026-09-27T04:09:17.0986228+05:30
+watcher replacement attempt pid=41092 failed startup verification; existing pid=38256 retained; main root=32000 untouched; time=2026-09-27T07:48:32.9584072+05:30
+all-test-chunk tripwire start root=32000 limit_pairs=50000000 time=2026-09-27T07:50:00.6441126+05:30
+all-test-chunk watcher verified pid=10012; replacing pid=38256; main root=32000 untouched; time=2026-09-27T07:50:02.5705294+05:30
