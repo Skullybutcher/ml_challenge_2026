@@ -542,3 +542,9 @@ The authorized recovery uses the smallest test-only chunk-size change: 25,000→
 ## Run 2 recovery verified (2026-09-27, 11:47 IST)
 
 The retry confirmed checkpoint reuse: all 40/40 training chunks logged `resumed checkpoint` from the unchanged key `8a332660fb9a`; no training chunk was recomputed. The repeated training/OOF stage completed with the same candidate recall 0.9752, OOF macro F0.5 0.9761, top-eight curve, and selected threshold 0.800. Test inference restarted at 11:46:37 in 139 chunks of approximately 12,500 S1s. The first smaller test chunk is still running, so there is no new pair count or completed candidate output yet. At 11:47, the process tree was 12.66 GB (peak 18.01 GB), system use 25.98 GB (peak 31.33 GB), and GPU 46°C. Memory and thermal watchers plus the 50M all-chunk tripwire are active; no exit or tripwire marker is present.
+
+## Run 2 inference monitor (2026-09-27, 12:47 IST)
+
+Run 2 remains in test inference after the verified 40/40 training-checkpoint resume. The current attempt started test inference at 11:46:37 IST with 139 chunks of approximately 12,500 S1s. As of 12:46 IST, test chunk 1 is still running; `run_full.log` has no chunk-completion or pair-count line, `candidate_pairs.tsv` remains empty, and neither `run_full.exit` nor a new tripwire marker exists. All 41 training checkpoint files remain present.
+
+At 12:46 IST, process-tree RSS was 17.75 GB (peak 18.41 GB) and system memory was 32.35 GB (peak 33.09 GB), below the 44/47 GB watchdogs and 48 GB cap. RTX 5070 Ti was 46°C. No supported CPU-package sensor is available. The inference worker and memory/GPU/tripwire watchers are alive; no settings or outputs were changed, and validation remains deferred until inference finishes.
