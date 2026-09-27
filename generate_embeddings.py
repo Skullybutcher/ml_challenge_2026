@@ -24,7 +24,8 @@ MODEL_NAME = "intfloat/e5-large-v2"
 MODEL_REVISION = "f169b11e22de13617baa190a028a32f3493550b6"
 VECTOR_DTYPE = np.float16
 DIMENSION = 1024
-ID_DTYPE = "S16"
+ID_DTYPE = object  # finalized ID sidecars use object arrays per the artifact contract
+ID_CHECKPOINT_DTYPE = "S16"  # fixed-width, pickle-free dtype for resumable mmap writes
 DEFAULT_PREFIX = "passage: "  # required for all train/test names and addresses
 GPU_PAUSE_C = 60
 GPU_RESUME_C = 48
@@ -298,7 +299,7 @@ def main() -> int:
         print(f"  {table}: {rows:,} rows", flush=True)
 
     one_field_bytes = total_rows * DIMENSION * np.dtype(VECTOR_DTYPE).itemsize
-    name_bytes = one_field_bytes + total_rows * np.dtype(ID_DTYPE).itemsize
+    name_bytes = one_field_bytes + total_rows * np.dtype(ID_CHECKPOINT_DTYPE).itemsize
     required_files = {
         name_root: (name_bytes, ("*_ids.npy", "*_ids.partial.npy",
                                  "*_name.npy", "*_name.partial.npy")),
@@ -328,7 +329,7 @@ def main() -> int:
         id_state_path = name_root / f"{table}_ids.state.json"
         id_config = safe_config(path, n, args)
         ids, id_state = open_or_create_memmap(
-            id_partial, id_final, id_state_path, (n,), ID_DTYPE, id_config
+            id_partial, id_final, id_state_path, (n,), ID_CHECKPOINT_DTYPE, id_config
         )
         name_final = name_root / f"{table}_name.npy"
         name_partial = name_root / f"{table}_name.partial.npy"
@@ -374,9 +375,9 @@ def main() -> int:
             id_done = int(id_state["rows_completed"])
             if id_done < cursor + chunk_len:
                 start_in_chunk = max(0, id_done - cursor)
-                ids = frame["entity_id"].iloc[start_in_chunk:].to_numpy(dtype=ID_DTYPE)
-                if np.any(np.char.str_len(ids) > np.dtype(ID_DTYPE).itemsize):
-                    raise ValueError(f"Entity ID exceeds {ID_DTYPE} in {table}.")
+                ids = frame["entity_id"].iloc[start_in_chunk:].to_numpy(dtype=ID_CHECKPOINT_DTYPE)
+                if np.any(np.char.str_len(ids) > np.dtype(ID_CHECKPOINT_DTYPE).itemsize):
+                    raise ValueError(f"Entity ID exceeds {ID_CHECKPOINT_DTYPE} in {table}.")
                 id_array[id_done:cursor+chunk_len] = ids
                 id_array, id_state = commit_progress(
                     id_array, id_state_path, id_state, cursor + chunk_len,

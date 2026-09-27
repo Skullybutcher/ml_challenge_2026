@@ -60,6 +60,8 @@ class E5EmbeddingStore:
                 raise ValueError("E5 artifacts must use the required 'passage: ' prefix.")
             if manifest.get("pooling") != "masked_mean" or manifest.get("normalize_l2") is not True:
                 raise ValueError("E5 artifacts must use masked mean pooling and L2 normalization.")
+            if manifest.get("id_dtype") != "object":
+                raise ValueError("E5 entity ID sidecars must use object dtype.")
         if self.name_manifest.get("tables") != self.address_manifest.get("tables"):
             raise ValueError("E5 name/address manifests have different table row counts.")
         if self.name_manifest.get("dimension") != self.DIMENSION:
@@ -80,13 +82,15 @@ class E5EmbeddingStore:
                 offset += self.counts[table]
             self.split_counts[split] = offset
         self._arrays = {}
+        self._cached_ids_split = None
+        self._cached_ids = None
         self._np = np
 
     def attach(self, frame, table: str):
         """Attach stable input-row indexes after verifying sidecar ID alignment."""
         if table not in self.TABLE_CODES:
             raise ValueError(f"Unknown E5 table key: {table}")
-        source_ids = frame["entity_id"].to_numpy(dtype="S16")
+        source_ids = frame["entity_id"].astype(str).to_numpy(dtype=object)
         split = table.split("_", 1)[0]
         stem = f"{split}_names_ids.npy"
         sidecars = (
@@ -96,14 +100,28 @@ class E5EmbeddingStore:
         for sidecar in sidecars:
             if not sidecar.is_file():
                 raise FileNotFoundError(f"Missing E5 entity ID sidecar: {sidecar}")
-            stored_ids = self._np.load(sidecar, mmap_mode="r", allow_pickle=False)
-            start = self.offsets[table]
-            expected = stored_ids[start:start + len(frame)]
-            if (len(expected) != len(frame)
-                    or not self._np.array_equal(expected, source_ids)):
-                raise ValueError(
-                    f"E5 ID order does not match {table} in {sidecar}; refusing wrong-vector joins."
-                )
+        try:
+            shared_ids = os.path.samefile(*sidecars)
+        except OSError as exc:
+            raise ValueError("Cannot verify shared E5 name/address ID sidecar.") from exc
+        if not shared_ids:
+            raise ValueError("E5 name/address IDs must share the generator-created sidecar.")
+        # Object NPY files cannot be memory-mapped. Load the shared ID array once
+        # per split and reuse it across all bounded training/inference chunks.
+        if self._cached_ids_split != split:
+            self._cached_ids = self._np.load(sidecars[0], allow_pickle=True)
+            if self._cached_ids.dtype != self._np.dtype(object):
+                raise ValueError(f"E5 ID sidecar must be object dtype: {sidecars[0]}")
+            if self._cached_ids.shape != (self.split_counts[split],):
+                raise ValueError(f"E5 ID sidecar has invalid shape: {sidecars[0]}")
+            self._cached_ids_split = split
+        start = self.offsets[table]
+        expected = self._cached_ids[start:start + len(frame)]
+        if (len(expected) != len(frame)
+                or not self._np.array_equal(expected, source_ids)):
+            raise ValueError(
+                f"E5 ID order does not match {table} in {sidecars[0]}; refusing wrong-vector joins."
+            )
         frame["_e5_row_idx"] = (
             self.offsets[table] + self._np.arange(len(frame), dtype=self._np.int32)
         )

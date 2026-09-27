@@ -11,13 +11,14 @@ import json
 import os
 import shutil
 import time
+import gc
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from generate_embeddings import (
-    DEFAULT_PREFIX, DIMENSION, ID_DTYPE, MODEL_NAME, MODEL_REVISION,
+    DEFAULT_PREFIX, DIMENSION, ID_CHECKPOINT_DTYPE, MODEL_NAME, MODEL_REVISION,
     TABLES, VECTOR_DTYPE, atomic_json, embed_batch, enforce_resource_limits,
     table_rows,
 )
@@ -36,7 +37,10 @@ def _config(split: str, field: str, tables: tuple[str, ...], counts: dict,
                         "mtime_ns": paths[t].stat().st_mtime_ns} for t in tables},
         "model": MODEL_NAME, "revision": MODEL_REVISION, "prefix": args.prefix,
         "max_length": args.max_length, "dimension": DIMENSION,
-        "dtype": "S16" if field == "ids" else "float16",
+        # IDs are checkpointed internally as fixed-width bytes (safe to mmap),
+        # then finalized as object arrays to match the requested artifact contract.
+        "dtype": "object" if field == "ids" else "float16",
+        "checkpoint_dtype": "S16" if field == "ids" else "float16",
         "pooling": "source_ids" if field == "ids" else "masked_mean",
         "normalize_l2": field != "ids", "row_order": list(tables),
     }
@@ -72,6 +76,54 @@ def _checkpoint(array, state: dict, state_path: Path, table: str, rows: int) -> 
     array.flush()
     state["rows_completed_by_table"][table] = int(rows)
     state["updated_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    atomic_json(state_path, state)
+
+
+def _npy_dtype_shape(path: Path):
+    """Read a .npy header without loading the array payload."""
+    with path.open("rb") as stream:
+        version = np.lib.format.read_magic(stream)
+        if version == (1, 0):
+            shape, _, dtype = np.lib.format.read_array_header_1_0(stream)
+        else:
+            shape, _, dtype = np.lib.format.read_array_header_2_0(stream)
+    return np.dtype(dtype), tuple(shape)
+
+
+def _finalize_object_ids(final: Path, state_path: Path, row_count: int) -> None:
+    """Convert a completed S16 checkpoint sidecar into the requested object NPY."""
+    temp = final.with_name(final.stem + ".object-convert.tmp.npy")
+    if temp.exists():
+        temp_dtype, temp_shape = _npy_dtype_shape(temp)
+        if temp_dtype != np.dtype(object) or temp_shape != (row_count,):
+            raise RuntimeError(f"Preserving unexpected ID conversion temp: {temp}")
+        # A previous process may have been interrupted while writing the payload.
+        # Load/validate the temporary object file before making it the final artifact.
+        temp_values = np.load(temp, allow_pickle=True)
+        if temp_values.dtype != np.dtype(object) or temp_values.shape != (row_count,):
+            raise RuntimeError(f"Preserving invalid ID conversion temp: {temp}")
+        del temp_values
+        gc.collect()
+        os.replace(temp, final)
+    elif final.is_file():
+        final_dtype, final_shape = _npy_dtype_shape(final)
+        if final_shape != (row_count,):
+            raise RuntimeError(f"ID sidecar shape mismatch: {final} {final_shape}")
+        if final_dtype != np.dtype(object):
+            if final_dtype != np.dtype("S16"):
+                raise RuntimeError(f"Unexpected ID sidecar dtype: {final} {final_dtype}")
+            ids = np.load(final, mmap_mode="r", allow_pickle=False)
+            object_ids = ids.astype("U16").astype(object)
+            ids._mmap.close()
+            np.save(temp, object_ids, allow_pickle=True)
+            del ids, object_ids
+            gc.collect()
+            os.replace(temp, final)
+    else:
+        raise FileNotFoundError(f"Completed ID sidecar is missing: {final}")
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["final_id_dtype"] = "object"
     atomic_json(state_path, state)
 
 
@@ -120,9 +172,8 @@ def main() -> int:
         rows = sum(counts[t] for t in tables)
         for field, root, stem, dtype, shape in (
             ("name", name_root, f"{split}_names", VECTOR_DTYPE, (rows, DIMENSION)),
-            ("ids", name_root, f"{split}_names_ids", ID_DTYPE, (rows,)),
+            ("ids", name_root, f"{split}_names_ids", ID_CHECKPOINT_DTYPE, (rows,)),
             ("address", address_root, f"{split}_addrs", VECTOR_DTYPE, (rows, DIMENSION)),
-            ("ids", address_root, f"{split}_addrs_ids", ID_DTYPE, (rows,)),
         ):
             expected_by_root[root].append((stem, int(np.prod(shape) * np.dtype(dtype).itemsize)))
 
@@ -133,7 +184,27 @@ def main() -> int:
             partial, final = root / f"{stem}.partial.npy", root / f"{stem}.npy"
             occupied += (final.stat().st_size if final.exists() else
                          partial.stat().st_size if partial.exists() else 0)
-        needed = max(0, required - occupied)
+        conversion_extra = 0
+        for split in ("train", "test"):
+            rows = sum(counts[t] for t in _split_tables(split))
+            id_stems = []
+            if root == name_root:
+                id_stems.append(f"{split}_names_ids")
+            for id_stem in id_stems:
+                final = root / f"{id_stem}.npy"
+                temp = root / f"{id_stem}.object-convert.tmp.npy"
+                if final.is_file() and _npy_dtype_shape(final)[0] == np.dtype(object):
+                    continue
+                if temp.is_file():
+                    temp_dtype, temp_shape = _npy_dtype_shape(temp)
+                    if temp_dtype == np.dtype(object) and temp_shape == (rows,):
+                        continue
+                    conversion_extra += max(0, rows * 64 + 1_000_000 - temp.stat().st_size)
+                else:
+                    # Conservative allowance for an object sidecar written beside
+                    # its fixed-width checkpoint file during atomic finalization.
+                    conversion_extra += rows * 64 + 1_000_000
+        needed = max(0, required - occupied) + conversion_extra
         free = shutil.disk_usage(root).free
         print(f"[DISK] {root.drive}: free={free/1e9:.1f}GB new_required={needed/1e9:.1f}GB",
               flush=True)
@@ -146,9 +217,8 @@ def main() -> int:
         rows = sum(counts[t] for t in tables)
         for field, root, stem, dtype, shape in (
             ("name", name_root, f"{split}_names", VECTOR_DTYPE, (rows, DIMENSION)),
-            ("ids", name_root, f"{split}_names_ids", ID_DTYPE, (rows,)),
+            ("ids", name_root, f"{split}_names_ids", ID_CHECKPOINT_DTYPE, (rows,)),
             ("address", address_root, f"{split}_addrs", VECTOR_DTYPE, (rows, DIMENSION)),
-            ("ids", address_root, f"{split}_addrs_ids", ID_DTYPE, (rows,)),
         ):
             config = _config(split, field, tables, counts, paths, args)
             arrays[(split, field, root)] = _open_array(root, stem, shape, dtype, config)
@@ -192,16 +262,15 @@ def main() -> int:
                 break
             frame = frame.iloc[:length]
             end = cursor + length
-            ids = frame["entity_id"].to_numpy(dtype=ID_DTYPE)
-            if np.any(np.char.str_len(ids) > np.dtype(ID_DTYPE).itemsize):
+            ids = frame["entity_id"].to_numpy(dtype=ID_CHECKPOINT_DTYPE)
+            if np.any(np.char.str_len(ids) > np.dtype(ID_CHECKPOINT_DTYPE).itemsize):
                 raise ValueError(f"Entity ID exceeds fixed-width S16 in {table}")
-            for root in (name_root, address_root):
-                arr, state, state_path, _, _ = arrays[(split, "ids", root)]
-                done = int(state["rows_completed_by_table"].get(table, 0))
-                if arr is not None and done < end:
-                    start = max(cursor, done)
-                    arr[base + start:base + end] = ids[start - cursor:]
-                    _checkpoint(arr, state, state_path, table, end)
+            arr, state, state_path, _, _ = arrays[(split, "ids", name_root)]
+            done = int(state["rows_completed_by_table"].get(table, 0))
+            if arr is not None and done < end:
+                start = max(cursor, done)
+                arr[base + start:base + end] = ids[start - cursor:]
+                _checkpoint(arr, state, state_path, table, end)
 
             for field, column, root in (("name", "business_name", name_root),
                                         ("address", "business_address", address_root)):
@@ -234,6 +303,8 @@ def main() -> int:
             raise RuntimeError(f"Read {cursor:,} rows for {table}; expected {n:,}")
         for root in (name_root, address_root):
             for field in ("ids", "name", "address"):
+                if field == "ids" and root != name_root:
+                    continue
                 if field == "name" and root != name_root:
                     continue
                 if field == "address" and root != address_root:
@@ -260,16 +331,41 @@ def main() -> int:
         arr._mmap.close()
         os.replace(partial, final)
 
+    for split in ("train", "test"):
+        rows = sum(counts[t] for t in _split_tables(split))
+        name_ids = name_root / f"{split}_names_ids.npy"
+        _finalize_object_ids(name_ids, name_root / f"{split}_names_ids.state.json", rows)
+        for link in (address_root / f"{split}_addrs_ids.npy",
+                     name_root / f"{split}_addrs_ids.npy"):
+            if link.exists() or link.is_symlink():
+                if not link.is_symlink() or link.resolve() != name_ids.resolve():
+                    raise RuntimeError(f"Refusing to replace unrelated ID output: {link}")
+            else:
+                link.symlink_to(name_ids)
+
     manifest = {
         "model": MODEL_NAME, "model_revision": MODEL_REVISION, "prefix": args.prefix,
         "dimension": DIMENSION, "dtype": "float16", "pooling": "masked_mean",
-        "normalize_l2": True, "id_dtype": "S16", "max_length": args.max_length,
+        "normalize_l2": True, "id_dtype": "object", "max_length": args.max_length,
         "batch_size_requested": args.batch_size, "tables": counts,
         "row_order": {split: list(_split_tables(split)) for split in ("train", "test")},
         "completed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     atomic_json(name_root / "e5_embeddings_manifest.json", manifest)
     atomic_json(address_root / "e5_embeddings_manifest.json", manifest)
+    if name_root != address_root:
+        for split in ("train", "test"):
+            for filename in (f"{split}_addrs.npy", f"{split}_addrs_ids.npy"):
+                link, target = name_root / filename, address_root / filename
+                if not target.is_file():
+                    raise FileNotFoundError(f"Cannot publish combined-folder link; missing {target}")
+                if link.is_symlink():
+                    if link.resolve() != target.resolve():
+                        raise RuntimeError(f"Refusing to replace unrelated output link: {link}")
+                elif link.exists():
+                    raise RuntimeError(f"Refusing to overwrite existing name-root file: {link}")
+                else:
+                    link.symlink_to(target)
     print("Combined E5 artifacts complete.", flush=True)
     return 0
 
