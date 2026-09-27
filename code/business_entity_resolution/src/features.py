@@ -7,10 +7,86 @@ from __future__ import annotations
 import os
 import hashlib
 import sys
+from pathlib import Path
 from typing import Dict, List
 
+import numpy as np
 from rapidfuzz import fuzz
 from normalize import tokens, rare_tokens
+
+
+# E5 Embedding support (optional, for semantic similarity features)
+_E5_NAME_EMB = None
+_E5_ADDR_EMB = None
+_E5_NAME_IDS = None
+_E5_ADDR_IDS = None
+_E5_NAME_IDX = None
+_E5_ADDR_IDX = None
+
+
+def load_e5_embeddings(emb_dir: str = "embeddings") -> None:
+    """Load E5 embeddings from memmap files. Called once at startup."""
+    global _E5_NAME_EMB, _E5_ADDR_EMB, _E5_NAME_IDS, _E5_ADDR_IDS, _E5_NAME_IDX, _E5_ADDR_IDX
+    if _E5_NAME_EMB is not None:
+        return
+    emb_dir = Path(emb_dir)
+    _E5_NAME_EMB = np.memmap("embeddings/train_names.npy", dtype=np.float16, mode="r").reshape(-1, 1024)
+    _E5_ADDR_EMB = np.memmap("embeddings/train_addrs.npy", dtype=np.float16, mode="r").reshape(-1, 1024)
+    _E5_NAME_IDS = np.load("embeddings/train_names_ids.npy", allow_pickle=True)
+    _E5_ADDR_IDS = np.load("embeddings/train_addrs.npy", allow_pickle=True)
+    _E5_NAME_IDX = {eid: i for i, eid in enumerate(_E5_NAME_IDS)}
+    _E5_ADDR_IDX = {eid: i for i, eid in enumerate(_E5_ADDR_IDS)}
+    print(f"Loaded E5 embeddings: names={len(_E5_NAME_IDS)}, addrs={len(_E5_ADDR_IDS)}")
+
+
+def e5_cosine_sim(emb1: np.ndarray, emb2: np.ndarray) -> np.ndarray:
+    """Cosine similarity of L2-normalized embeddings (already normalized)."""
+    # emb1, emb2: (n, 1024) float16/float32
+    return np.sum(emb1.astype(np.float32) * emb2.astype(np.float32), axis=1)
+
+
+def get_e5_features(
+    s1_ids: List[str],
+    other_ids: List[str],
+) -> np.ndarray:
+    """Compute E5 cosine similarities for a batch of pairs.
+    
+    Returns array of shape (n_pairs, 2) with [name_cos, addr_cos].
+    """
+    load_e5_embeddings()
+    
+    # Get embeddings via index lookup
+    n1_idx = np.array([_E5_NAME_IDX.get(s, -1) for s in s1_ids])
+    n2_idx = np.array([_E5_NAME_IDX.get(o, -1) for o in other_ids])
+    a1_idx = np.array([_E5_ADDR_IDX.get(s, -1) for s in s1_ids])
+    a2_idx = np.array([_E5_ADDR_IDX.get(o, -1) for o in other_ids])
+    
+    # Get embeddings (handle missing with zeros)
+    n1_emb = np.zeros((len(s1_ids), 1024), dtype=np.float16)
+    n2_emb = np.zeros((len(s1_ids), 1024), dtype=np.float16)
+    a1_emb = np.zeros((len(s1_ids), 1024), dtype=np.float16)
+    a2_emb = np.zeros((len(s1_ids), 1024), dtype=np.float16)
+    
+    valid_n1 = n1_idx >= 0
+    valid_n2 = n2_idx >= 0
+    valid_a1 = a1_idx >= 0
+    valid_a2 = a2_idx >= 0
+    
+    if valid_n1.any():
+        n1_emb[valid_n1] = _E5_NAME_EMB[n1_idx[valid_n1]]
+    if valid_n2.any():
+        n2_emb[valid_n2] = _E5_NAME_EMB[n2_idx[valid_n2]]
+    if valid_a1.any():
+        a1_emb[valid_a1] = _E5_ADDR_EMB[a1_idx[valid_a1]]
+    if valid_a2.any():
+        a2_emb[valid_a2] = _E5_ADDR_EMB[a2_idx[valid_a2]]
+    
+    # Cosine similarities
+    name_cos = e5_cosine_sim(n1_emb, n2_emb)
+    addr_cos = e5_cosine_sim(a1_emb, a2_emb)
+    
+    return np.column_stack([name_cos, addr_cos]).astype(np.float32)
+
 
 FEATURE_NAMES = [
     "name_levenshtein_ratio", "name_token_sort_ratio", "name_partial_ratio",
@@ -20,6 +96,11 @@ FEATURE_NAMES = [
     "country_match", "country_either_empty",
     "rare_token_overlap", "rare_token_union_size",
     "name_first_token_match",
+]
+
+# E5 feature names (added when --use-e5 is enabled)
+E5_FEATURE_NAMES = [
+    "name_e5_cosine", "addr_e5_cosine",
 ]
 
 
@@ -102,12 +183,16 @@ def build_feature_frame(pairs: List[Dict]) -> "pandas.DataFrame":
     return pd.DataFrame(rows, columns=["s1_id", "other_id"] + FEATURE_NAMES)
 
 
-def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.DataFrame":
+def build_feature_frame_vectorized(
+    pairs_df: "pandas.DataFrame",
+    use_e5: bool = False,
+) -> "pandas.DataFrame":
     """Vectorized-merge friendly: columns s1_id, other_id, name1/addr1/country1, name2/addr2/country2."""
     import numpy as np
     import pandas as pd
     if len(pairs_df) == 0:
-        return pd.DataFrame(columns=["s1_id", "other_id"] + FEATURE_NAMES)
+        feature_names = FEATURE_NAMES + (E5_FEATURE_NAMES if use_e5 else [])
+        return pd.DataFrame(columns=["s1_id", "other_id"] + feature_names)
     # Merge results can contain non-string scalars even though source TSVs are
     # loaded as text. The scalar feature functions require strings (for example,
     # _char_bigrams slices each value), so enforce that contract after filling
@@ -118,10 +203,19 @@ def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.Data
     n2 = pairs_df["name2"].fillna("").astype(str).tolist()
     a2 = pairs_df["addr2"].fillna("").astype(str).tolist()
     c2 = pairs_df["country2"].fillna("").astype(str).tolist()
+    
+    # E5 features (if enabled)
+    e5_feats = None
+    if use_e5:
+        s1_ids = pairs_df["s1_id"].tolist()
+        other_ids = pairs_df["other_id"].tolist()
+        e5_feats = get_e5_features(s1_ids, pairs_df["other_id"].tolist())
+    
     # Keep NumPy's nested-sequence conversion bounded when a candidate chunk
     # contains millions of pairs. This also preserves a predictable peak while
     # retaining the original scalar feature computation and ordering.
-    feat_array = np.empty((len(pairs_df), len(FEATURE_NAMES)), dtype=np.float32)
+    n_features = len(FEATURE_NAMES) + (len(E5_FEATURE_NAMES) if use_e5 else 0)
+    feat_array = np.empty((len(pairs_df), n_features), dtype=np.float32)
     batch_size = 100_000
     trace_batches = os.environ.get("AKARI_TRACE_FEATURE_BATCHES") == "1"
     for start in range(0, len(pairs_df), batch_size):
@@ -186,10 +280,18 @@ def build_feature_frame_vectorized(pairs_df: "pandas.DataFrame") -> "pandas.Data
                 f"Feature batch shape {batch_array.shape}; expected "
                 f"({end - start}, {len(FEATURE_NAMES)})"
             )
+        if use_e5:
+            batch_array = np.hstack([batch_array, e5_feats[start:end]])
+        if batch_array.shape != (end - start, n_features):
+            raise ValueError(
+                f"Feature batch shape {batch_array.shape}; expected "
+                f"({end - start}, {n_features})"
+            )
         feat_array[start:end] = batch_array
         if trace_batches:
             print(f"[FEATURES] done rows={start}:{end} total={len(pairs_df):,}", flush=True)
-    out = pd.DataFrame(feat_array, columns=FEATURE_NAMES)
+    feature_names = FEATURE_NAMES + (E5_FEATURE_NAMES if use_e5 else [])
+    out = pd.DataFrame(feat_array, columns=FEATURE_NAMES + (E5_FEATURE_NAMES if use_e5 else []))
     out.insert(0, "s1_id", pairs_df["s1_id"].to_numpy())
     out.insert(1, "other_id", pairs_df["other_id"].to_numpy())
     return out

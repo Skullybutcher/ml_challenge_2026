@@ -100,7 +100,7 @@ def cap_candidates_per_s1(cand_s2: Dict[str, Set[str]], cand_s3: Dict[str, Set[s
         cand_s3[eid] = keep_set & s3_set
         per_s1_counts[eid] = len(keep_set)
     return per_s1_counts
-from features import build_feature_frame_vectorized, FEATURE_NAMES
+from features import build_feature_frame_vectorized, FEATURE_NAMES, E5_FEATURE_NAMES
 from model import train_oof, calibrate_oof, tune_threshold, predict_with_models
 
 
@@ -248,7 +248,7 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         train_chunk_size: int | None = 5000, skip_test: bool = False,
         max_pairs_per_s1: int = 0, use_rare: bool = False,
         rare_min_len: int = 6, rare_max_df: int = 2000,
-        resume_train_chunks: bool = False) -> None:
+        resume_train_chunks: bool = False, use_e5: bool = False) -> None:
     os.makedirs(out_dir, exist_ok=True)
     rss = PeakRSSSampler(interval=30.0)
     rss.start()
@@ -508,7 +508,7 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
         for i in range(lo, hi):
             other_lists_all[i] = []
         n_pre = len(pairs_tr)
-        feat_df = build_feature_frame_vectorized(pairs_tr)
+        feat_df = build_feature_frame_vectorized(pairs_tr, use_e5=use_e5)
         del pairs_tr
         labels = np.array([1 if o in gt.get(s, set()) else 0
                            for s, o in zip(feat_df["s1_id"].to_numpy(),
@@ -591,7 +591,7 @@ def run(data_dir: str, out_dir: str, n_splits: int = 5, seed: int = 42,
             c_s3 = block(s1_chunk, s3_te)
             pairs_te = pd.concat([build_pair_frame(s1_chunk, s2_te, c_s2),
                                   build_pair_frame(s1_chunk, s3_te, c_s3)], ignore_index=True)
-            feat_te = build_feature_frame_vectorized(pairs_te)
+            feat_te = build_feature_frame_vectorized(pairs_te, use_e5=use_e5)
             del pairs_te
             if len(feat_te) > 0:
                 probs = iso.predict(predict_with_models(models, feat_te[FEATURE_NAMES].to_numpy()))
@@ -655,6 +655,8 @@ def main():
                     help="min token length for the rescue channel (default 6)")
     ap.add_argument("--rare-max-df", type=int, default=2000,
                     help="upper df bound of the rescue band (default 2000)")
+    ap.add_argument("--use-e5", action="store_true",
+                    help="add E5 embedding cosine similarity features; off by default")
     ap.add_argument("--validate", action="store_true",
                     help="also run utils/validate_submission.py if found alongside --data-dir")
     args = ap.parse_args()
@@ -669,7 +671,8 @@ def main():
         max_pairs_per_s1=args.max_pairs_per_s1,
         use_rare=args.use_rare, rare_min_len=args.rare_min_len,
         rare_max_df=args.rare_max_df,
-        resume_train_chunks=args.resume_train_chunks)
+        resume_train_chunks=args.resume_train_chunks,
+        use_e5=args.use_e5)
 
     if args.validate:
         validator = os.path.join(args.data_dir, "utils", "validate_submission.py")
