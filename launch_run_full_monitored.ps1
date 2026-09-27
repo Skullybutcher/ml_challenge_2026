@@ -1,10 +1,14 @@
+param(
+    [ValidateRange(1, 1000000)][int]$TestChunkSize = 100000
+)
+
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $repoRoot
 
 $runLauncher = Join-Path $repoRoot 'start_run_full_checkpointed.ps1'
 $memoryWatcher = Join-Path $repoRoot 'utils\watch_process_tree.ps1'
-$tripwireWatcher = Join-Path $repoRoot 'watch_run_full_tripwire.ps1'
+$tripwireWatcher = Join-Path $repoRoot 'watch_run_full_tripwire_all.ps1'
 $gpuWatcher = Join-Path $repoRoot 'watch_run_full_gpu.ps1'
 $monitorLog = Join-Path $repoRoot 'run_full.monitor.log'
 $tripwireLog = Join-Path $repoRoot 'run_full.tripwire.log'
@@ -23,7 +27,7 @@ if (Test-Path -LiteralPath $tripwireMarker) {
     throw 'run_full.tripwire exists; review the recorded pair-count tripwire before launching again.'
 }
 
-$run = Start-Process -FilePath $pwsh -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$runLauncher`"" -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru
+$run = Start-Process -FilePath $pwsh -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$runLauncher`" -TestChunkSize $TestChunkSize" -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru
 Set-Content -LiteralPath $pidPath -Value $run.Id -Encoding ascii
 Start-Sleep -Seconds 2
 
@@ -37,4 +41,4 @@ Set-Content -LiteralPath $thermalPidPath -Value $gpu.Id -Encoding ascii
 Start-Sleep -Seconds 3
 $runProcess = Get-Process -Id $run.Id -ErrorAction SilentlyContinue
 if (-not $runProcess) { throw "Run 2 launcher PID $($run.Id) stopped during startup; inspect run_full.log and run_full.exit." }
-Write-Output "Run 2 launcher PID=$($run.Id); memory watchdog PID=$($memory.Id); pair tripwire PID=$($tripwire.Id); GPU thermal watchdog PID=$($gpu.Id)."
+Write-Output "Run 2 launcher PID=$($run.Id); test chunk size=$TestChunkSize; memory watchdog PID=$($memory.Id); all-chunk pair tripwire PID=$($tripwire.Id); GPU thermal watchdog PID=$($gpu.Id)."

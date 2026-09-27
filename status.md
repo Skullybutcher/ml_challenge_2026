@@ -1,4 +1,4 @@
-# Latest status summary — 2026-09-27, 08:54 IST
+# Latest status summary — 2026-09-27, 09:41 IST
 
 ## Run 1 (completed; launch gates PASS)
 
@@ -13,13 +13,15 @@
 - Commit `0d4575d` adds the 5,509,855 aligned labels and `(s1_id, other_id)` pairs exported from saved chunks. The artifact manifest records this limitation. No split threshold is claimed or adopted yet.
 - After Run 2 completes, regenerate raw OOF probabilities from the saved Run 1 feature checkpoints, compute the full grid and requested source/singleton splits, then record the E4 result here and in `SUBMISSIONS.md` before choosing a submission threshold.
 
-## Run 2 (test inference; last verified 08:54 IST)
+## Run 2 (retry active; last verified 09:41 IST)
 
-- Training featurization completed **40/40 chunks** at 07:12:07. Grouped OOF training, calibration, and threshold selection completed. Test inference began at 07:16:17; the first 100k-S1 test chunk has not yet logged completion, and `candidate_pairs.tsv` is still 0 bytes. The Python worker remains responsive and its cumulative CPU time increased from 17,295 s at 08:18 to 19,424 s at 08:54, confirming ongoing compute. `run_full.exit` and the tripwire marker are absent.
+- The first Run 2 attempt completed training featurization **40/40 chunks** at 07:12:07 and finished OOF/threshold selection. Its 100k-S1 first test chunk began at 07:16:17 but had not logged completion when the system-memory watchdog stopped the run at 09:13:15: system use reached **47.00 GB**, with process-tree RSS **33.81 GB**. No test `pairs=` count had been emitted, so the 50M pair tripwire did not trigger. `run_full.exit` is absent because the watchdog terminated the launcher tree. The closest playbook row is RAM pressure at startup; this incident specifically occurred during test inference, so the direct diagnosis is system memory limit, not a code exception.
+- The exact last 50 `run_full.log` lines and the full run, monitor, thermal, and tripwire evidence are preserved as `run_full_attempt_system_memory_watchdog_20260927_091315.*`. All **40/40 sampled training checkpoint NPZs** remain in `out_full/.train_chunk_checkpoints` (126,446,125 bytes total). Closest playbook entry: “Segfault / OpenBLAS alloc fail at startup” → machine RAM pressure → “Close everything else, confirm free RAM, rerun. NOT a code bug.” It is a nearby resource-pressure remedy; this run instead hit the system watchdog during inference.
+- The retry started at 09:32:29 with unchanged training/model flags, `--resume-train-chunks`, and test-only `--test-chunk-size 25000` (reduced from 100,000 to bound per-chunk memory and pair counts). It found the identical training checkpoint key `8a332660fb9a`; all 40 checkpoint files remain present. By 09:41:37 it had finished normalization and entered training blocking; explicit per-chunk resume lines are still pending. New memory, GPU, and all-test-chunk tripwire watchers are active.
 - Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. OOF macro F0.5: **0.9761** (passes 0.970 gate, below 0.988 decision threshold and Run 1's 0.9825). The printed top-eight curve: **0.65:0.9771, 0.62:0.9771, 0.60:0.9771, 0.68:0.9771, 0.70:0.9770, 0.57:0.9770, 0.55:0.9770, 0.72:0.9768**. Wrapper-selected Run 2 plateau threshold: **0.800**, score **0.9761**.
 - Submission threshold decision is **pending E4**: per the current rule, because Run 2 OOF <0.988, adopt an E4 split threshold only if its gain is ≥0.001; otherwise use Run 1's 0.72. Run 2 inference is currently using 0.800, so its outputs are provisional until the threshold decision is resolved.
-- At 08:54:24, process-tree RSS was **32.68 GB** (peak **33.28 GB**); system use **45.68 GB** (peak **46.74 GB**). Latest GPU sample at 08:54:12 was **41°C**. Current use remains below watchdog limits; the historical system peak remains 0.26 GB below the 47 GB stop limit. A supported CPU-package sensor is unavailable.
-- The initial watcher only checked test chunk 1. It has been replaced with `watch_run_full_tripwire_all.ps1`, which checks each completed test-chunk log line against the same 50M limit and stops the Run 2 process tree only if a chunk exceeds it. Verified watcher PID is recorded in `run_full.tripwire.pid`; the original Run 2 launcher/worker remain alive.
+- First-attempt peaks: **33.81 GB process-tree RSS / 47.00 GB system use** (system watchdog stopped the run); GPU remained **41°C**. The CPU-package sensor is unavailable. After termination, system use returned to **12.79 GB** with 50.98 GB free. Retry peak as of 09:41:37: **10.63 GB process tree / 23.59 GB system**; GPU **42°C**.
+- `launch_run_full_monitored.ps1` now starts the all-test-chunk watcher. The current retry has fresh process-tree, GPU, and all-chunk tripwire watchers; PIDs are recorded in the runtime PID files.
 Detailed chronological Run 1 and Run 2 history follows.
 
 # Status — Akari business entity resolution

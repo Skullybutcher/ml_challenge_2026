@@ -1,3 +1,7 @@
+param(
+    [ValidateRange(1, 1000000)][int]$TestChunkSize = 100000
+)
+
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $repoRoot
@@ -35,6 +39,7 @@ $ErrorActionPreference = 'Continue'
     --sample-s1 100000 `
     --n-splits 5 `
     --train-chunk-size 2500 `
+    --test-chunk-size $TestChunkSize `
     --use-rare `
     --rare-max-df 1000 `
     --resume-train-chunks *> $logPath
