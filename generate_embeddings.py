@@ -27,9 +27,9 @@ DIMENSION = 1024
 ID_DTYPE = object  # finalized ID sidecars use object arrays per the artifact contract
 ID_CHECKPOINT_DTYPE = "S16"  # fixed-width, pickle-free dtype for resumable mmap writes
 DEFAULT_PREFIX = "passage: "  # required for all train/test names and addresses
-GPU_PAUSE_C = 68
-GPU_RESUME_C = 56
-GPU_STOP_C = 82
+GPU_PAUSE_C = 74
+GPU_RESUME_C = 66
+GPU_STOP_C = 85
 _NVML = None
 _NVML_HANDLE = None
 TABLES = (
@@ -188,7 +188,11 @@ def enforce_resource_limits(psutil, torch, last_check: float) -> float:
 
 def embed_batch(texts: list[str], tokenizer, model, torch, device: str,
                 max_length: int, initial_batch_size: int) -> tuple[np.ndarray, int]:
-    batch_size = min(len(texts), initial_batch_size)
+    # Keep the configured batch capacity across short tails at a checkpoint
+    # boundary.  If this were clamped to len(texts), the final partial batch
+    # (often just a few rows) would permanently shrink every later table's
+    # batch size even though no OOM occurred.
+    batch_size = initial_batch_size
     while True:
         try:
             outputs = []
