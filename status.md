@@ -564,3 +564,9 @@ The 6,250-S1 inference-chunk retry passed the resume check: all 40/40 training c
 The 6,250-S1 retry completed test chunk 1/278 at 13:47:41 IST with 33,919,675 pairs, 6,199 matched S1s, and 2,136.8 seconds runtime; the 50M tripwire passed. This confirms the smaller inference chunk is below the per-chunk guardrail. Run 2 remains active in inference, with the same training/OOF result (candidate recall 0.9752; OOF macro F0.5 0.9761; selected threshold 0.800) and all 41 training checkpoints preserved. The 0.99047 leaderboard target has not been beaten by any verified result; inference outputs remain incomplete and unvalidated.
 
 At 13:56 IST, current process-tree RSS was 13.48 GB (peak 18.02 GB), system memory 27.65 GB (peak 31.93 GB), and RTX 5070 Ti temperature 44°C. No exit or tripwire marker is present. CPU-package sensor remains unavailable. No leaderboard upload occurred.
+
+## Run 2 test inference chunk 2 completed (2026-09-27, 14:27 IST)
+
+Test chunk 2/278 completed at 14:23:14 IST with 33,651,377 pairs and 2,132.1 seconds runtime; cumulative matched S1 count is 12,392. It passed the 50M all-chunk tripwire. Run 2 remains active; chunks 1-2 are complete, with 276 test chunks remaining. The 41 training checkpoints remain unchanged; the candidate output is incomplete and has not been validated.
+
+At 14:26 IST, process-tree RSS was 15.93 GB (peak 18.02 GB), system memory was 30.17 GB (peak 31.93 GB), and RTX 5070 Ti temperature was 45°C. The process, memory watchdog, all-chunk tripwire, and GPU watcher are active; no exit or tripwire marker is present. The current OOF result remains 0.9761 at threshold 0.800, below Aman's 0.99047 leaderboard target. No leaderboard upload occurred.
