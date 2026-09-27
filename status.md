@@ -721,3 +721,19 @@ Both active combined passage memmaps now have 1,000,000 committed train_s2 rows:
 PID 40588 and Python child 35360 remain alive. Latest vitals were about 5.60 GB process-tree RSS and 19.03 GB system memory. GPU was 56°C at the snapshot (10.1/16.3 GB VRAM, 5% utilization, 58% fan, 93 W); the current 74/66/85°C thermal policy remains active with no hard-stop event. C: had 47.17 GB free and E: 8.06 GB free. No new error or disk warning appears in the latest logs; CPU package temperature remains unavailable from a supported sensor.
 
 At the measured pace, roughly 42 million name/address vector encodings remain across train_s2, train_s3, and all test tables, projecting about 13 hours of generation before retraining or validation. This exceeds the remaining time to the 23:59 IST deadline. No safe software speed change was applied; thermal headroom remains too narrow to raise the pause threshold, and changing batch or sequence settings risks the run or changes the embedding contract. No leaderboard upload occurred.
+
+## E5 train_s2 1.5-million vector checkpoint committed (2026-09-27, 21:35 IST)
+
+The active combined passage memmaps have advanced to 1,500,000 committed train_s2 vectors for both names and addresses; train_s1 remains complete at 2,206,821 per field. The shared train ID sidecar is at 1,867,776 rows and may lead vectors by the current reader block. The new vector checkpoint was written around 21:22 IST, roughly 19 minutes after the previous 500,000-row checkpoint. train_s3 and test tables remain unstarted.
+
+PID 40588 and child 35360 remain alive. Latest vitals were 8.60 GB process-tree RSS and 21.97 GB system use. The GPU sample was 77°C, 83% utilization, 11.01/16.30 GB VRAM, 224 W, and 56% fan; this is below the 85°C hard stop, with normal pauses already recorded at 74/66°C. C: had 47.18 GB free and E: 8.06 GB free. No error or disk warning appears in the current logs. CPU package temperature remains unavailable from a supported sensor.
+
+The observed 500,000-row checkpoint cadence remains about 19 minutes, so the full remaining train_s2/train_s3/test name and address work is still projected at roughly 13 hours before retraining or validation. No competing GPU work or risky runtime setting changes were made; low-impact parallel preparation and contract validation have already been completed. No leaderboard upload occurred.
+
+## E5 train_s2 1.5-million checkpoint and parallel-inference handoff (2026-09-27, 21:35 IST)
+
+Both active combined passage memmaps committed 1,500,000 train_s2 vectors for names and addresses; train_s1 remains complete at 2,206,821 per field. The shared train ID sidecar is at 1,867,776 rows. The checkpoint landed around 21:22 IST, about 19 minutes after the previous 500,000-row checkpoint. train_s3 and test tables remain unstarted.
+
+PID 40588 / child 35360 remain active. Latest readings: 8.60 GB process-tree RSS, 21.97 GB system memory, GPU 77°C / 83% utilization / 11.01 of 16.30 GB VRAM / 224 W / 56% fan. The configured pause/resume/stop limits remain 74/66/85°C; the last sample is below the hard stop and cooling pauses are normal. C: had 47.18 GB free; E: 8.06 GB. No log error or disk warning appeared. CPU package temperature has no supported sensor.
+
+Aman reports that a parallel inference script has been written and pushed, with retrieval deferred until needed. Do not pull or run it during embedding generation; review it at the inference stage so the live generator and its outputs remain isolated. The tracked experiment branch had no newer remote commit visible at this checkpoint poll. The remaining generation is still projected at about 13 hours before retraining or validation, beyond the 23:59 IST deadline. No leaderboard upload occurred.
