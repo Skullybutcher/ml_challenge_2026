@@ -1,0 +1,19 @@
+{
+  "rows": 5509855,
+  "positives": 339918,
+  "pair_ids_shape": [
+    5509855,
+    2
+  ],
+  "pair_ids_dtype": "<U12",
+  "pair_ids_columns": [
+    "s1_id",
+    "other_id"
+  ],
+  "labels_dtype": "uint8",
+  "ordering": "chunk index 0..39, original row order within each saved train chunk; aligned arrays",
+  "source": "out_100k/.train_chunk_checkpoints/*/train_chunk_*.npz",
+  "raw_oof_predictions_saved_by_original_run": false,
+  "full_threshold_curve_saved_by_original_run": false,
+  "note": "The original Run 1 discarded OOF predictions after threshold tuning and printed only the top eight threshold scores. Regenerate predictions/37-point curve by re-running grouped OOF from these checkpoints after Run 2 completes."
+}
