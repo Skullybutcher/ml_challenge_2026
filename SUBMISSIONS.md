@@ -26,3 +26,7 @@ A France-specific 0.95 threshold was proposed, with an asserted singleton-rate r
 ## E5 proposal review (2026-09-27)
 
 The proposed E5 embedding/retrain/parallel-inference path was not adopted. The current environment lacks PyTorch, Transformers, and cached E5 weights; the specified train+test name/address vectors require about 99 GB at fp16 before temporary space, while C: has about 96 GB free. The new features would invalidate the current training checkpoint fingerprint, and the proposed parallel inference program has not been implemented or parity-checked. The live inference chunks have measured about 35.6 minutes each, so the plan's two-minute estimate is not supported. No new threshold or feature is staged; the only valid submission decision remains pending complete outputs and validator PASS.
+
+## Run 2 stopped before validation (2026-09-27)
+
+At Aman's explicit direction, Run 2 inference was stopped after four of 278 test chunks because the measured pace could not finish before the deadline. The incomplete candidate TSV is preserved locally as `out_full/candidate_pairs_partial_user_stopped_20260927_160355.tsv`; all 41 training checkpoints remain. Exit code `-1` reflects the requested process termination, not a model or pipeline result. No `matching_results.tsv` or validator PASS exists, so no READY-TO-SUBMIT variant is staged and no upload was made.

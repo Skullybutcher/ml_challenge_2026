@@ -10,3 +10,6 @@ TRIPWIRE: test chunk 1/139 has 55474641 pairs (> 50000000); stopping to protect 
 all-test-chunk tripwire start root=36264 limit_pairs=50000000 time=2026-09-27T12:52:48.8198958+05:30
 test chunk 1/278 pairs=33919675 limit=50000000; tripwire passed time=2026-09-27T13:47:41.4438449+05:30
 test chunk 2/278 pairs=33651377 limit=50000000; tripwire passed time=2026-09-27T14:23:15.4332064+05:30
+test chunk 3/278 pairs=34371585 limit=50000000; tripwire passed time=2026-09-27T14:59:41.8664747+05:30
+test chunk 4/278 pairs=33675713 limit=50000000; tripwire passed time=2026-09-27T15:35:34.2678086+05:30
+all-test-chunk tripwire end root=36264 time=2026-09-27T16:03:34.3606796+05:30

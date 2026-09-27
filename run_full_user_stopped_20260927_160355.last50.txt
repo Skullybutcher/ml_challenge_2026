@@ -1,0 +1,50 @@
+[13:06:00] train chunk 7/40: resumed checkpoint; pairs=3,704,129 -> subsampled=134,480 (pos after subsample: 8,340)
+[13:06:02] train chunk 8/40: resumed checkpoint; pairs=3,752,034 -> subsampled=137,548 (pos after subsample: 8,525)
+[13:06:05] train chunk 9/40: resumed checkpoint; pairs=3,709,998 -> subsampled=135,697 (pos after subsample: 8,413)
+[13:06:08] train chunk 10/40: resumed checkpoint; pairs=3,730,444 -> subsampled=139,130 (pos after subsample: 8,635)
+[13:06:12] train chunk 11/40: resumed checkpoint; pairs=3,684,865 -> subsampled=137,586 (pos after subsample: 8,533)
+[13:06:15] train chunk 12/40: resumed checkpoint; pairs=3,667,347 -> subsampled=135,740 (pos after subsample: 8,392)
+[13:06:19] train chunk 13/40: resumed checkpoint; pairs=3,657,105 -> subsampled=135,677 (pos after subsample: 8,411)
+[13:06:23] train chunk 14/40: resumed checkpoint; pairs=3,735,126 -> subsampled=133,575 (pos after subsample: 8,249)
+[13:06:28] train chunk 15/40: resumed checkpoint; pairs=3,778,111 -> subsampled=135,951 (pos after subsample: 8,438)
+[13:06:32] train chunk 16/40: resumed checkpoint; pairs=3,690,429 -> subsampled=134,810 (pos after subsample: 8,364)
+[13:06:36] train chunk 17/40: resumed checkpoint; pairs=3,657,122 -> subsampled=134,468 (pos after subsample: 8,362)
+[13:06:41] train chunk 18/40: resumed checkpoint; pairs=3,703,612 -> subsampled=133,758 (pos after subsample: 8,305)
+[13:06:46] train chunk 19/40: resumed checkpoint; pairs=3,707,528 -> subsampled=136,679 (pos after subsample: 8,469)
+[13:06:51] train chunk 20/40: resumed checkpoint; pairs=3,848,939 -> subsampled=137,713 (pos after subsample: 8,578)
+[13:06:56] train chunk 21/40: resumed checkpoint; pairs=3,694,685 -> subsampled=135,148 (pos after subsample: 8,382)
+[13:07:00] train chunk 22/40: resumed checkpoint; pairs=3,698,092 -> subsampled=136,518 (pos after subsample: 8,470)
+[13:07:05] train chunk 23/40: resumed checkpoint; pairs=3,663,280 -> subsampled=134,649 (pos after subsample: 8,349)
+[13:07:10] train chunk 24/40: resumed checkpoint; pairs=3,708,683 -> subsampled=137,830 (pos after subsample: 8,542)
+[13:07:14] train chunk 25/40: resumed checkpoint; pairs=3,722,963 -> subsampled=132,910 (pos after subsample: 8,233)
+[13:07:19] train chunk 26/40: resumed checkpoint; pairs=3,635,714 -> subsampled=133,544 (pos after subsample: 8,286)
+[13:07:23] train chunk 27/40: resumed checkpoint; pairs=3,633,875 -> subsampled=136,771 (pos after subsample: 8,470)
+[13:07:27] train chunk 28/40: resumed checkpoint; pairs=3,753,422 -> subsampled=135,774 (pos after subsample: 8,408)
+[13:07:31] train chunk 29/40: resumed checkpoint; pairs=3,704,030 -> subsampled=136,072 (pos after subsample: 8,421)
+[13:07:35] train chunk 30/40: resumed checkpoint; pairs=3,696,246 -> subsampled=134,571 (pos after subsample: 8,362)
+[13:07:38] train chunk 31/40: resumed checkpoint; pairs=3,634,033 -> subsampled=136,480 (pos after subsample: 8,461)
+[13:07:41] train chunk 32/40: resumed checkpoint; pairs=3,621,543 -> subsampled=137,408 (pos after subsample: 8,511)
+[13:07:44] train chunk 33/40: resumed checkpoint; pairs=3,687,634 -> subsampled=136,728 (pos after subsample: 8,482)
+[13:07:46] train chunk 34/40: resumed checkpoint; pairs=3,607,074 -> subsampled=134,513 (pos after subsample: 8,313)
+[13:07:48] train chunk 35/40: resumed checkpoint; pairs=3,613,766 -> subsampled=134,599 (pos after subsample: 8,336)
+[13:07:50] train chunk 36/40: resumed checkpoint; pairs=3,598,378 -> subsampled=138,342 (pos after subsample: 8,644)
+[13:07:51] train chunk 37/40: resumed checkpoint; pairs=3,617,596 -> subsampled=135,195 (pos after subsample: 8,401)
+[13:07:52] train chunk 38/40: resumed checkpoint; pairs=3,719,611 -> subsampled=136,745 (pos after subsample: 8,498)
+[13:07:53] train chunk 39/40: resumed checkpoint; pairs=3,634,290 -> subsampled=135,562 (pos after subsample: 8,405)
+[13:07:54] train chunk 40/40: resumed checkpoint; pairs=3,713,028 -> subsampled=136,716 (pos after subsample: 8,494)
+[13:07:55] Pairs before subsample: 147,631,526 | pos: 337,081
+[13:07:55] Pairs after subsample (cap=15x): 5,434,674 | pos: 337,081
+[13:07:55] [TIMING] featurize (all chunks): 2.1 min
+[13:07:55] Training GBDT with GroupKFold (grouped by S1 entity)...
+[13:11:38] Calibrating OOF probabilities (isotonic)...
+[13:11:39] Tuning decision threshold against macro F0.5...
+Threshold curve (top 8): t=0.65:0.9771, t=0.62:0.9771, t=0.60:0.9771, t=0.68:0.9771, t=0.70:0.9770, t=0.57:0.9770, t=0.55:0.9770, t=0.72:0.9768
+Threshold plateau (tolerance=0.001): best=0.9771, selected=0.800, selected_score=0.9761
+[13:12:00] Best threshold=0.800 -> OOF macro F0.5=0.9761
+[13:12:00] All-singleton baseline macro F0.5 on train: 0.0568 (your real edge over the leaderboard is measured above this floor, not from 0)
+[13:12:00] [RAM] peak RSS so far: 0.00 GB
+[13:12:04] Test inference in 278 chunk(s) of ~6,250 S1 (test S1=1,732,544)...
+[13:47:41] chunk 1/278: pairs=33,919,675 matched_so_far=6,199 (2136.8s)
+[14:23:14] chunk 2/278: pairs=33,651,377 matched_so_far=12,392 (2132.1s)
+[14:59:40] chunk 3/278: pairs=34,371,585 matched_so_far=18,585 (2185.1s)
+[15:35:33] chunk 4/278: pairs=33,675,713 matched_so_far=24,773 (2150.9s)
