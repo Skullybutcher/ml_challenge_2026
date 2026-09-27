@@ -558,3 +558,9 @@ Following the active recovery instruction, only test inference chunk size was ha
 ## Run 2 checkpoint resume confirmed (2026-09-27, 13:08 IST)
 
 The 6,250-S1 inference-chunk retry passed the resume check: all 40/40 training chunks logged `resumed checkpoint` from the unchanged fingerprint `8a332660fb9a`; none were retrained. The retry reproduced 147,631,526 candidate pairs and 337,081 positives after blocking/subsampling, then entered GBDT training. At 13:08 IST the process and watchers were alive, with process-tree RSS 8.91 GB (peak 18.02 GB), system use 22.83 GB (peak 31.93 GB), and GPU 45°C. Test inference and its 50M tripwire remain active; no new inference pair count has been produced yet.
+
+## Run 2 test inference chunk 1 passed (2026-09-27, 13:57 IST)
+
+The 6,250-S1 retry completed test chunk 1/278 at 13:47:41 IST with 33,919,675 pairs, 6,199 matched S1s, and 2,136.8 seconds runtime; the 50M tripwire passed. This confirms the smaller inference chunk is below the per-chunk guardrail. Run 2 remains active in inference, with the same training/OOF result (candidate recall 0.9752; OOF macro F0.5 0.9761; selected threshold 0.800) and all 41 training checkpoints preserved. The 0.99047 leaderboard target has not been beaten by any verified result; inference outputs remain incomplete and unvalidated.
+
+At 13:56 IST, current process-tree RSS was 13.48 GB (peak 18.02 GB), system memory 27.65 GB (peak 31.93 GB), and RTX 5070 Ti temperature 44°C. No exit or tripwire marker is present. CPU-package sensor remains unavailable. No leaderboard upload occurred.
