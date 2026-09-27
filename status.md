@@ -1,4 +1,4 @@
-# Latest status summary — 2026-09-27, 06:15 IST
+# Latest status summary — 2026-09-27, 06:28 IST
 
 ## Run 1 (completed; launch gates PASS)
 
@@ -9,12 +9,12 @@
 - Plateau pick: **0.72**, the highest displayed threshold within 0.001 of best (0.0003 below the best score). The persisted log contains only the top eight, so 0.72 is the highest qualifying displayed point, not a verified maximum over the full grid.
 - Gates used to launch Run 2: **PASS** (recall ≥0.95; OOF ≥0.970; threshold curve printed). Peak was **31.49 GB process tree / 45.66 GB system**.
 
-## Run 2 (running; last verified 06:15 IST)
+## Run 2 (running; last verified 06:28 IST)
 
-- Training featurization: **21/40 chunks checkpointed** (latest chunk 21 completed at 06:12:09). Launcher and watchdogs are alive; no exit, error, or tripwire marker.
+- Training featurization: **24/40 chunks checkpointed** (latest chunk 24 completed at 06:24:41). Launcher and watchdogs are alive; no exit, error, or tripwire marker.
 - Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. This passes the recall gate.
 - Run 2 OOF and its threshold curve are **pending** until model training begins after all 40 feature chunks. Therefore the Run 2 OOF/curve gates are not yet evaluated.
-- At 06:13, process-tree RSS was 12.88 GB (peak 17.83 GB); system use was 27.24 GB (peak 31.88 GB); GPU was 42°C.
+- At 06:28, process-tree RSS was 12.19 GB (peak 17.83 GB); system use was 26.32 GB (peak 31.88 GB); GPU was 41°C.
 
 Detailed chronological Run 1 and Run 2 history follows.
 
@@ -499,4 +499,10 @@ Run 2 candidate recall remains 0.9752 overall and 0.9911 for US (n=60,078); Indi
 Training chunks 18-21 completed at 05:58:30, 06:03:07, 06:07:42, and 06:12:09. They contained 3,703,612 / 3,707,528 / 3,848,939 / 3,694,685 candidate pairs before subsampling and retained 133,758 / 136,679 / 137,713 / 135,148 rows (8,305 / 8,469 / 8,578 / 8,382 positives). Twenty-one resumable checkpoints are present; the launcher is alive and run_full.exit is absent.
 
 Run 2 candidate recall remains 0.9752 overall and 0.9911 for US (n=60,078); India n=0 excluded. At 06:13, process-tree RSS was 12.88 GB and system use was 27.24 GB; peaks remain 17.83 / 31.88 GB. GPU was 42°C. No failure or watchdog/tripwire event occurred; test inference has not begun.
+
+## Run 2 progress (2026-09-27, 06:28 IST)
+
+Training chunks 22-24 completed at 06:16:27, 06:20:37, and 06:24:41. Chunk 22 had 3,698,092 candidate pairs and retained 136,518 rows (8,470 positives); chunk 23 had 3,663,280 pairs and retained 134,649 rows (8,349 positives); chunk 24 had 3,708,683 pairs and retained 137,830 rows (8,542 positives). Twenty-four resumable checkpoints are present; the launcher is alive and run_full.exit is absent.
+
+Run 2 candidate recall remains 0.9752 overall and 0.9911 for US (n=60,078); India n=0 excluded. At 06:28, process-tree RSS was 12.19 GB and system use was 26.32 GB; peaks remain 17.83 / 31.88 GB. GPU was 41°C. No failure or watchdog/tripwire event occurred; test inference has not begun.
 
