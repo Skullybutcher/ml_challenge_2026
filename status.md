@@ -518,3 +518,11 @@ Training chunks 25-28 completed at 06:28:37, 06:32:19, 06:36:00, and 06:39:41. T
 
 Run 2 candidate recall remains 0.9752 overall and 0.9911 for US (n=60,078); India n=0 excluded. At 06:40, process-tree RSS was 11.67 GB and system use was 26.02 GB; peaks remain 17.83 / 31.88 GB. GPU was 42°C. No failure or watchdog/tripwire event occurred; test inference has not begun.
 
+
+## Run 2 inference recovery and status (2026-09-27, 10:22 IST)
+
+The first inference attempt was stopped by the system-memory watchdog at 09:13:15 IST when total system RAM reached 47.00 GB; process-tree RSS was 33.81 GB, below its 44 GB limit. The exact final 50 log lines and monitor evidence are preserved in `run_full_attempt_system_memory_watchdog_20260927_091315.*`. The documented RAM-pressure failure-table guidance is to reduce competing memory pressure and rerun; the minimum run-specific adjustment was lowering only test inference chunk size from 100,000 to 25,000 S1s. The training/model flags and saved checkpoints were left unchanged. The all-test-chunk >50M pair watcher is active.
+
+The retry started at 09:32:29 IST and resumed all 40/40 training chunks from fingerprint `8a332660fb9a`; 41 checkpoint files remain in `out_full/.train_chunk_checkpoints` (40 training chunks plus metadata). Run 2 recomputed OOF 0.9761 and printed its threshold curve; candidate recall is 0.9752 overall / 0.9911 US, with India `n=0` excluded. The wrapper selected threshold 0.800. The recall, OOF, and curve gates pass. Test inference began at 09:51:31 in 70 chunks of about 25,000 S1s. At 10:21:30 IST the process and all watchdogs were alive, but the first inference chunk had not completed: `candidate_pairs.tsv` remains 0 bytes and no test-pair total has been logged. No tripwire or thermal marker is present.
+
+At 10:21:30, process-tree RSS was 20.81 GB (peak 21.70 GB); system use was 33.89 GB (peak 34.68 GB), below the 44 GB tree, 47 GB system, and 48 GB combined limits. The RTX 5070 Ti was 42°C at 4% utilization. A supported CPU-package sensor is unavailable, so no CPU-package reading is reported. No validator was run because test outputs are not complete. No leaderboard upload was made.
