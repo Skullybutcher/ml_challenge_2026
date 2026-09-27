@@ -1,3 +1,23 @@
+# Latest status summary — 2026-09-27, 06:15 IST
+
+## Run 1 (completed; launch gates PASS)
+
+- Candidate recall: **0.9834 overall**, **0.9966 US** (n=60,078); India is excluded because n=0.
+- OOF macro F0.5: **0.9825**.
+- Pairs: **311,199,888 before → 5,509,855 after** subsampling.
+- Top-eight threshold curve: **0.62:0.9825, 0.65:0.9825, 0.57:0.9825, 0.60:0.9825, 0.68:0.9824, 0.70:0.9824, 0.55:0.9823, 0.72:0.9822**.
+- Plateau pick: **0.72**, the highest displayed threshold within 0.001 of best (0.0003 below the best score). The persisted log contains only the top eight, so 0.72 is the highest qualifying displayed point, not a verified maximum over the full grid.
+- Gates used to launch Run 2: **PASS** (recall ≥0.95; OOF ≥0.970; threshold curve printed). Peak was **31.49 GB process tree / 45.66 GB system**.
+
+## Run 2 (running; last verified 06:15 IST)
+
+- Training featurization: **21/40 chunks checkpointed** (latest chunk 21 completed at 06:12:09). Launcher and watchdogs are alive; no exit, error, or tripwire marker.
+- Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. This passes the recall gate.
+- Run 2 OOF and its threshold curve are **pending** until model training begins after all 40 feature chunks. Therefore the Run 2 OOF/curve gates are not yet evaluated.
+- At 06:13, process-tree RSS was 12.88 GB (peak 17.83 GB); system use was 27.24 GB (peak 31.88 GB); GPU was 42°C.
+
+Detailed chronological Run 1 and Run 2 history follows.
+
 # Status — Akari business entity resolution
 
 **Snapshot:** 2026-09-26 11:30 Asia/Kolkata
