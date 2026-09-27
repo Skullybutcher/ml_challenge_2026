@@ -22,3 +22,7 @@ Aman reports the current leaderboard top as **0.9918**. Run 2's OOF macro F0.5 i
 ## France threshold proposal (not adopted)
 
 A France-specific 0.95 threshold was proposed, with an asserted singleton-rate rationale and score gain. The current artifacts do not contain Run 2 OOF probabilities, serialized models, or test candidate probabilities needed to validate that claim; `candidate_pairs.tsv` contains candidate IDs only. The suggested code is not a drop-in script, and it uses 0.72 for non-France S1s rather than Run 2's selected 0.800. No France threshold or heuristic post-processing has been applied. Run 2 inference remains on its frozen 0.800 threshold; no submission decision is changed without measured OOF evidence.
+
+## E5 proposal review (2026-09-27)
+
+The proposed E5 embedding/retrain/parallel-inference path was not adopted. The current environment lacks PyTorch, Transformers, and cached E5 weights; the specified train+test name/address vectors require about 99 GB at fp16 before temporary space, while C: has about 96 GB free. The new features would invalidate the current training checkpoint fingerprint, and the proposed parallel inference program has not been implemented or parity-checked. The live inference chunks have measured about 35.6 minutes each, so the plan's two-minute estimate is not supported. No new threshold or feature is staged; the only valid submission decision remains pending complete outputs and validator PASS.
