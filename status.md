@@ -1,4 +1,4 @@
-# Current status — 2026-09-27 16:56 IST
+# Current status — 2026-09-27 17:00 IST
 
 This live snapshot supersedes older status summaries below; detailed prior entries are retained as history.
 
@@ -11,16 +11,16 @@ This live snapshot supersedes older status summaries below; detailed prior entri
 ## E5 implementation and pilot
 
 - Installed an isolated Python 3.11/CUDA runtime under D:/mlc_e5_runtime; downloaded and loaded intfloat/e5-large-v2 at pinned revision f169b11e22de13617baa190a028a32f3493550b6. The RTX 5070 Ti is visible to CUDA.
-- Added resumable, per-table fp16 embedding generation in generate_embeddings.py, plus opt-in name/address cosine features and country-threshold options in the pipeline. Full generation started at about 16:54 IST (PID 14232), writing names to C:/mlc_model/e5_name and addresses to E:/mlc_model/e5_address; logs are C:/mlc_model/generate_embeddings.log and generate_embeddings.stderr.log. At the first live check it had loaded the model and was counting source rows.
+- Added resumable, per-table fp16 embedding generation in generate_embeddings.py, plus opt-in name/address cosine features and country-threshold options in the pipeline. The first full attempt (PID 14232) stopped safely at the 82°C GPU limit before any vector row checkpoint was committed; 98,304 train_s1 ID rows were committed. All partial NPY memmaps and state files are retained. The exact stdout, stderr, and final 47 stdout lines are archived outside Git under C:/mlc_model/generate_embeddings_attempt_20260927_170030.*.
 - Completed a pilot across all six train/test source tables: 8,192 rows per table, name and address vectors shaped (8,192, 1,024), fp16, with aligned ID sidecars. Pilot checks passed for shape, dtype, finite values, unit norms, two-row feature construction, and first-8,192-ID alignment against all six source-table prefixes.
-- The pilot’s GPU cooldown guard paused at 78°C, resumed after cooling to 48°C, and completed; observed process-tree memory was about 1.48 GB. A feature-path defect that deleted the pair frame before reading country labels was fixed. The four changed Python files compile under the existing Python 3.11 project environment.
+- The pilot’s GPU cooldown guard paused at 78°C, resumed after cooling to 48°C, and completed; observed process-tree memory was about 1.48 GB. A feature-path defect that deleted the pair frame before reading country labels was fixed. The four changed Python files compile under the existing Python 3.11 project environment. To avoid another thermal stop, generation now pauses at 68°C and resumes below 56°C, checks vitals every second, and defaults to batch 256. Disk preflight now credits the already allocated partial arrays so a resume does not falsely report that their full size must be free again.
 - Approximate full output is 49.6 GB for names and 49.6 GB for addresses, split across C: and E:. At the last disk check, C: had 93.8 GB free and E: 76.6 GB free at launch. The generator requires about 50 GB per output volume plus a 5% margin and will stop if that preflight fails. Continue monitoring free space and memory during generation.
 - France threshold 0.95 / other-country threshold 0.65 remains an **unvalidated experiment**, not a submission decision. It must be evaluated against OOF evidence where available; no score gain is claimed. E5 retraining, test inference, validation, or submission staging have not happened.
 
 ## Immediate next steps
 
-1. Pushed E5 code and the initial status snapshot to exp/run1-2500-a467-20260926 as d3d9a0c. This status refresh records the full generation launch. Datasets, embeddings, model weights, run logs, and training checkpoints remain out of Git.
-2. Monitor resumable full embedding generation to the separate C:/E: output roots; check GPU temperature, memory, and disk space.
+1. E5 code/status are pushed to exp/run1-2500-a467-20260926 (d3d9a0c and 0efad8d). This thermal-guard and resumable-disk-preflight fix is being committed before restart. Datasets, embeddings, model weights, run logs, and training checkpoints remain out of Git.
+2. Resume full embedding generation to the separate C:/E: output roots with the existing partial arrays/state. Monitor GPU temperature, memory, and disk space.
 3. Retrain/evaluate with --use-e5 only after all required vectors are complete. Keep outputs provisional until OOF/threshold evaluation and the documented validator pass; never upload to the leaderboard.
 
 ---

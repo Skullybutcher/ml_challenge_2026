@@ -26,6 +26,9 @@ VECTOR_DTYPE = np.float16
 DIMENSION = 1024
 ID_DTYPE = "S16"
 DEFAULT_PREFIX = "query: "  # symmetric similarity: same query prefix for both records
+GPU_PAUSE_C = 68
+GPU_RESUME_C = 56
+GPU_STOP_C = 82
 TABLES = (
     ("train_s1", "train/train_source1.tsv"),
     ("train_s2", "train/train_source2.tsv"),
@@ -123,7 +126,7 @@ def get_gpu_temperature() -> int | None:
 
 def enforce_resource_limits(psutil, torch, last_check: float) -> float:
     now = time.monotonic()
-    if now - last_check < 5:
+    if now - last_check < 1:
         return last_check
 
     def sample_vitals() -> int | None:
@@ -148,16 +151,18 @@ def enforce_resource_limits(psutil, torch, last_check: float) -> float:
             raise RuntimeError(
                 f"System memory watchdog reached: {used_gb:.2f} GB (limit 47 GB)."
             )
-        if temperature is not None and temperature >= 82:
-            raise RuntimeError(f"GPU thermal stop reached: {temperature} C (limit 82 C).")
+        if temperature is not None and temperature >= GPU_STOP_C:
+            raise RuntimeError(
+                f"GPU thermal stop reached: {temperature} C (limit {GPU_STOP_C} C)."
+            )
         return temperature
 
     temperature = sample_vitals()
-    if temperature is not None and temperature >= 78:
-        print(f"[THERMAL-PAUSE] GPU at {temperature} C; pausing embeddings until <=72 C.",
+    if temperature is not None and temperature >= GPU_PAUSE_C:
+        print(f"[THERMAL-PAUSE] GPU at {temperature} C; pausing embeddings until <={GPU_RESUME_C} C.",
               flush=True)
-        while temperature > 72:
-            time.sleep(5)
+        while temperature > GPU_RESUME_C:
+            time.sleep(1)
             temperature = sample_vitals()
         print(f"[THERMAL-RESUME] GPU cooled to {temperature} C; continuing.", flush=True)
     return time.monotonic()
@@ -208,7 +213,7 @@ def main() -> int:
     parser.add_argument("--address-out", type=Path, required=True,
                         help="root for address-vector tables")
     parser.add_argument("--model-cache", type=Path, default=Path(r"D:\mlc_e5_cache"))
-    parser.add_argument("--batch-size", type=int, default=512)
+    parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--checkpoint-every", type=int, default=500_000)
     parser.add_argument("--read-chunk-rows", type=int, default=32_768)
@@ -277,13 +282,26 @@ def main() -> int:
 
     one_field_bytes = total_rows * DIMENSION * np.dtype(VECTOR_DTYPE).itemsize
     name_bytes = one_field_bytes + total_rows * np.dtype(ID_DTYPE).itemsize
-    for path, required in ((name_root, name_bytes), (address_root, one_field_bytes)):
+    required_files = {
+        name_root: (name_bytes, ("*_ids.npy", "*_ids.partial.npy",
+                                 "*_name.npy", "*_name.partial.npy")),
+        address_root: (one_field_bytes, ("*_address.npy", "*_address.partial.npy")),
+    }
+    for path, (required, patterns) in required_files.items():
         free = shutil.disk_usage(path).free
-        print(f"[DISK] {path.drive} free={free / 1e9:.1f}GB required~{required / 1e9:.1f}GB",
-              flush=True)
-        if free < required * 1.05:
+        already_reserved = sum(
+            item.stat().st_size
+            for pattern in patterns
+            for item in path.glob(pattern)
+            if item.is_file()
+        )
+        remaining = max(0, required - already_reserved)
+        print(f"[DISK] {path.drive} free={free / 1e9:.1f}GB "
+              f"required~{required / 1e9:.1f}GB existing~{already_reserved / 1e9:.1f}GB "
+              f"remaining~{remaining / 1e9:.1f}GB", flush=True)
+        if free < remaining * 1.05:
             raise RuntimeError(f"Insufficient free space at {path}: need about "
-                               f"{required / 1e9:.1f}GB plus safety margin.")
+                               f"{remaining / 1e9:.1f}GB more plus safety margin.")
 
     table_specs: dict[str, dict] = {}
     for table, path in paths.items():
