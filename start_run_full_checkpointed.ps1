@@ -1,5 +1,5 @@
 param(
-    [ValidateRange(1, 1000000)][int]$TestChunkSize = 100000
+    [ValidateRange(1, 1000000)][int]$TestChunkSize = 12500
 )
 
 $ErrorActionPreference = 'Stop'
