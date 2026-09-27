@@ -745,3 +745,11 @@ Both active combined passage memmaps now have 2,000,000 committed train_s2 vecto
 PID 40588 and child 35360 remain alive. Latest vitals were 10.04 GB process-tree RSS and 23.23 GB system memory. GPU sample was 59°C, with 10.99/16.30 GB VRAM, 4% utilization, 171 W, and 57% fan; recent active cycles paused at up to 79°C, below the 85°C stop. C: had 47.16 GB free and E: 8.06 GB free. No error or disk warning appears in the latest logs. CPU package temperature remains unavailable from a supported sensor.
 
 The next useful parallel preparation remains limited to low-impact review; the pushed inference script will be retrieved at the inference stage, not during generation. No competing GPU work or output changes were made. At the observed ~19-minute checkpoint cadence, the remaining embeddings still require roughly 12–13 hours before retraining and validation. No leaderboard upload occurred.
+
+## E5 train_s2 2.5-million vector checkpoint committed (2026-09-27, 22:05 IST)
+
+Both active combined passage memmaps now have 2,500,000 committed train_s2 vectors for names and addresses; train_s1 remains complete at 2,206,821 per field. The shared train ID sidecar is at 2,621,440 rows, ahead by the current reader block. The checkpoint was committed around 22:00–22:01 IST, about 19 minutes after the prior vector checkpoint. train_s3 and test tables remain unstarted.
+
+PID 40588 and child 35360 remain alive. Latest vitals were 11.50 GB process-tree RSS and 24.74 GB system use. GPU sample was 76°C, 82% utilization, 10.99/16.30 GB VRAM, 174 W, and 58% fan; recent pause peaks reached 80°C, under the 85°C hard stop. C: had 47.18 GB free and E: 8.06 GB free. No failure, disk warning, or watchdog breach appears in the latest logs. CPU package temperature remains unavailable from a supported sensor.
+
+No additional parallel compute is safe or likely to speed the current thermal-limited run. The post-generation loader/manifest checks are prepared; the reported parallel inference script remains deferred until the inference stage. At the observed cadence, approximately 39 million name/address vector encodings remain, projecting around 12–13 hours before retraining and validation. No leaderboard upload occurred.
