@@ -1,4 +1,4 @@
-# Latest status summary — 2026-09-27, 07:07 IST
+# Latest status summary — 2026-09-27, 07:15 IST
 
 ## Run 1 (completed; launch gates PASS)
 
@@ -13,12 +13,12 @@
 - Commit `0d4575d` adds the 5,509,855 aligned labels and `(s1_id, other_id)` pairs exported from saved chunks. The artifact manifest records this limitation. No split threshold is claimed or adopted yet.
 - After Run 2 completes, regenerate raw OOF probabilities from the saved Run 1 feature checkpoints, compute the full grid and requested source/singleton splits, then record the E4 result here and in `SUBMISSIONS.md` before choosing a submission threshold.
 
-## Run 2 (running; last verified 07:07 IST)
+## Run 2 (grouped OOF model training; last verified 07:15 IST)
 
-- Training featurization: **37/40 chunks checkpointed** (latest chunk 37 completed at 07:05:52); launcher, memory, tripwire, and GPU guards are alive. `run_full.exit` and `run_full.tripwire` are absent.
-- Latest chunk results: 35/40 at 07:01:07, 3,613,766 → 134,599 (8,336 positives); 36/40 at 07:03:33, 3,598,378 → 138,342 (8,644); 37/40 at 07:05:52, 3,617,596 → 135,195 (8,401).
-- Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded. Run 2 OOF and threshold curve remain pending until all 40 chunks are featurized and the model stage runs.
-- At 07:07:21, process-tree RSS was **9.24 GB** (peak **17.83 GB**); system use **23.38 GB** (peak **31.88 GB**). Latest GPU sample at 07:07:16 was **43°C**. A supported CPU-package sensor is unavailable.
+- Training featurization: **40/40 chunks checkpointed**, latest chunk 40 completed at 07:12:07. The pipeline has entered `Training GBDT with GroupKFold`; OOF/curve and test inference are not yet complete. Launcher and memory, tripwire, and GPU guards are alive; `run_full.exit` and `run_full.tripwire` are absent.
+- Final chunks: 38/40 at 07:08:08, 3,719,611 → 136,745 (8,498 positives); 39/40 at 07:10:11, 3,634,290 → 135,562 (8,405); 40/40 at 07:12:07, 3,713,028 → 136,716 (8,494).
+- Featurization totals: **147,631,526** candidate pairs before subsampling, **5,434,674** retained pairs, **337,081** positives. Candidate recall: **0.9752 overall**, **0.9911 US** (n=60,078); India n=0 excluded.
+- At 07:15:22, process-tree RSS was **8.67 GB** (peak **17.83 GB**); system use **23.19 GB** (peak **31.88 GB**). Latest GPU sample at 07:15:18 was **43°C**. A supported CPU-package sensor is unavailable.
 Detailed chronological Run 1 and Run 2 history follows.
 
 # Status — Akari business entity resolution
