@@ -1,19 +1,19 @@
-# Latest status — 2026-09-28 13:55 IST
+# Latest status — 2026-09-28, matched 50k OOF comparison complete
 
-## Matched 50k OOF comparison
+## Baseline and E5 OOF results
 
-- The baseline completed with the agreed CPU-only settings: Python 3.11, `PYTHONHASHSEED=42`, affinity `0xffff0000`, `--sample-s1 50000 --n-splits 5 --train-chunk-size 2500 --use-rare --rare-max-df 1000 --skip-test --resume-train-chunks`. All 20 training chunks were saved; OOF and threshold selection completed; stderr was empty and the resource monitor ended normally.
-- Baseline results: candidate recall **0.9857 overall** and **0.9983 US** (n=30,157); **84,765,735** candidate pairs before subsampling and **2,753,208** retained. OOF macro F0.5 was **0.9839**, best threshold **0.675**. Top-eight threshold curve: `0.70:0.9839, 0.68:0.9839, 0.72:0.9839, 0.65:0.9839, 0.62:0.9839, 0.60:0.9838, 0.57:0.9838, 0.75:0.9837`. Wall time was about **1h30m**; peak process-tree RSS **11.64 GB**, peak system use **25.99 GB**.
-- The matched E5-enabled run started at **13:49 IST** with the same settings plus `--use-e5 --e5-name-dir C:\\mlc_model\\e5_name --e5-address-dir E:\\mlc_model\\e5_address`. At launch, it was loading training sources and had committed **0/20** chunks. It writes to `C:\\mlc_model\\e5_oof_eval\\e5_50k`; test inference is skipped.
-- E5 manifests and completion states were checked before launch: pinned `intfloat/e5-large-v2`, `passage: ` prefix, 1024D fp16 masked-mean vectors, L2 normalization, and all train/test table counts complete. Launch resources were **14.33 GB system RAM in use**, **43°C GPU**, **21.61 GB free on C:**, and **8.07 GB free on E:**. The E5 run is CPU-only; no supported CPU-package temperature sensor is available.
-- The baseline launcher had produced a blank exit marker despite the complete checkpoints, clean stderr, final OOF result, and normal monitor end. The marker was repaired to `0` from that completion evidence, and the local launcher now waits on the process object and records an explicit exit code for the E5 run.
-- E5 metrics and the paired delta are pending. No test inference, submission staging, leaderboard upload, or Git upload of datasets, embeddings, checkpoints, or runtime logs has occurred.
+- Both runs used the same CPU-only 50k settings: Python 3.11, `PYTHONHASHSEED=42`, affinity `0xffff0000`, `--sample-s1 50000 --n-splits 5 --train-chunk-size 2500 --use-rare --rare-max-df 1000 --skip-test --resume-train-chunks`. The E5 run additionally used `--use-e5` with the completed name/address vector directories. Both saved all **20/20** training chunks, emitted no stderr, and ended with exit code 0. Test inference was skipped.
+- The baseline produced candidate recall **0.9857 overall** and **0.9983 US** (n=30,157), **84,765,735** candidate pairs before subsampling and **2,753,208** retained pairs. OOF macro F0.5 was **0.9839**, best threshold **0.675**. Top-eight curve: `0.70:0.9839, 0.68:0.9839, 0.72:0.9839, 0.65:0.9839, 0.62:0.9839, 0.60:0.9838, 0.57:0.9838, 0.75:0.9837`. Wall time was about **1h30m**; peak process-tree RSS **11.64 GB**, peak system use **25.99 GB**.
+- E5 produced the same blocking recall and pair counts, OOF macro F0.5 **0.9854**, best threshold **0.675**, for a paired OOF delta of **+0.0015**. Top-eight curve: `0.72:0.9854, 0.70:0.9854, 0.68:0.9854, 0.65:0.9854, 0.62:0.9854, 0.75:0.9853, 0.60:0.9853, 0.57:0.9853`. Wall time was **1h52m46s**; peak process-tree RSS **17.05 GB**, peak system use **31.31 GB**.
+- E5 manifests and completion states confirm pinned `intfloat/e5-large-v2`, `passage: ` prefix, 1024D fp16 masked-mean vectors, L2 normalization, and all train/test table counts complete. The generation and OOF artifacts remain outside Git. No supported CPU-package temperature sensor is available.
+- The baseline launcher initially wrote a blank exit marker even though all checkpoints and OOF completed, stderr was empty, and the monitor ended normally. The marker was repaired to `0` from that evidence. The local launcher was fixed to wait on the process and record its explicit exit code; E5 exited with code 0.
 
-## Related code
+## Submission artifact and related code
 
-- `utils/replay_oof_threshold_splits.py` reconstructs and verifies Run 1 OOF rows from saved feature checkpoints, replays grouped OOF probabilities, and calculates full-grid plus source/singleton threshold analyses. France-specific thresholds remain unmeasured because the Run 1 training sample has no France S1 rows.
+- The matching-only handoff under `out_submit/` is the **unscored heuristic** artifact, separate from the incomplete Run 2 model inference. Its committed LFS shards and restore script are in Git. `out_submit/README.txt` records that formatting, candidate containment, and ID-existence checks passed on the local matching and candidate files: **1,732,544 rows** and **9,969,589 valid S2/S3 IDs**. The candidate file stays local, and the heuristic has no measured score. It is not marked READY-TO-SUBMIT and was not uploaded to the leaderboard.
+- `utils/replay_oof_threshold_splits.py` reconstructs and verifies Run 1 OOF rows from saved feature checkpoints, replays grouped OOF probabilities, and calculates full-grid plus source/singleton threshold analyses. France-specific thresholds remain unvalidated because the Run 1 training sample has no France S1 rows.
 
-This snapshot supersedes the older E5-generation status below; prior entries remain as history.
+No test inference, leaderboard upload, or Git inclusion of embeddings, model weights, training checkpoints, or runtime logs occurred. Older status entries below are retained as history.
 
 # Current status — 2026-09-27 18:01 IST
 

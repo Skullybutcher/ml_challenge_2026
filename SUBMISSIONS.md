@@ -5,6 +5,15 @@
 | | | | | | | | |
 
 Policy: Aman uploads — Akari stages READY-TO-SUBMIT rows only (see NIGHT_HANDOFF.md). A later run beating the staged OOF by ≥ 0.003 supersedes it; keep both files.
+
+## Latest status — 2026-09-28 (research results; no submission staged)
+
+- The matched 50k CPU-only OOF comparison completed successfully for baseline and E5, with 20/20 training chunks, empty stderr, and exit code 0. Both used the same sample, folds, rare-channel settings, and skipped test inference.
+- Baseline: candidate recall **0.9857 overall / 0.9983 US** (US n=30,157); **84,765,735** pairs before subsampling, **2,753,208** retained; OOF macro F0.5 **0.9839**, best threshold **0.675**. Top-eight curve: `0.70:0.9839, 0.68:0.9839, 0.72:0.9839, 0.65:0.9839, 0.62:0.9839, 0.60:0.9838, 0.57:0.9838, 0.75:0.9837`. Wall time ~1h30; peak tree RSS 11.64 GB / system RAM 25.99 GB.
+- E5: same blocking recall and pair counts; OOF macro F0.5 **0.9854**, best threshold **0.675**, paired delta **+0.0015**. Top-eight curve: `0.72:0.9854, 0.70:0.9854, 0.68:0.9854, 0.65:0.9854, 0.62:0.9854, 0.75:0.9853, 0.60:0.9853, 0.57:0.9853`. Wall time 1h52m46s; peak tree RSS 17.05 GB / system RAM 31.31 GB. These are OOF results, not test or leaderboard scores.
+- The matching-only heuristic artifact is stored in Git as ordered gzip LFS parts with a restore utility; its README records passing formatting, candidate-containment, and ID-existence checks for exactly **1,732,544 rows** and **9,969,589 valid S2/S3 IDs**. It is unscored. `candidate_pairs.tsv` remains local. This is separate from Run 2 model inference, which Aman stopped after 4/278 chunks; its partial output and 41 checkpoints remain preserved locally.
+- No READY-TO-SUBMIT row is staged and no leaderboard upload occurred. E5 vectors, weights, checkpoints, and runtime logs remain outside Git. Full metric details are in `status.md`.
+
 ## E4 source/singleton analysis — pending
 
 Run 1's global baseline is OOF macro F0.5 **0.9825** with the current global plateau choice **0.72**. The original Run 1 output did not save raw OOF probabilities or the full 37-point threshold grid, so source-specific (S2/S3) and singleton/non-singleton F0.5 values are not computable from the available labels and pair IDs. Commit `0d4575d` exports the 5,509,855 aligned labels and `(s1_id, other_id)` pairs from the saved feature checkpoints. After Run 2 completes, regenerate Run 1 raw OOF probabilities from those checkpoints, calculate the full curve and requested splits, and record whether any split gains at least 0.001. No split threshold is adopted yet.
