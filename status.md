@@ -1,3 +1,20 @@
+# Latest status — 2026-09-28 13:55 IST
+
+## Matched 50k OOF comparison
+
+- The baseline completed with the agreed CPU-only settings: Python 3.11, `PYTHONHASHSEED=42`, affinity `0xffff0000`, `--sample-s1 50000 --n-splits 5 --train-chunk-size 2500 --use-rare --rare-max-df 1000 --skip-test --resume-train-chunks`. All 20 training chunks were saved; OOF and threshold selection completed; stderr was empty and the resource monitor ended normally.
+- Baseline results: candidate recall **0.9857 overall** and **0.9983 US** (n=30,157); **84,765,735** candidate pairs before subsampling and **2,753,208** retained. OOF macro F0.5 was **0.9839**, best threshold **0.675**. Top-eight threshold curve: `0.70:0.9839, 0.68:0.9839, 0.72:0.9839, 0.65:0.9839, 0.62:0.9839, 0.60:0.9838, 0.57:0.9838, 0.75:0.9837`. Wall time was about **1h30m**; peak process-tree RSS **11.64 GB**, peak system use **25.99 GB**.
+- The matched E5-enabled run started at **13:49 IST** with the same settings plus `--use-e5 --e5-name-dir C:\\mlc_model\\e5_name --e5-address-dir E:\\mlc_model\\e5_address`. At launch, it was loading training sources and had committed **0/20** chunks. It writes to `C:\\mlc_model\\e5_oof_eval\\e5_50k`; test inference is skipped.
+- E5 manifests and completion states were checked before launch: pinned `intfloat/e5-large-v2`, `passage: ` prefix, 1024D fp16 masked-mean vectors, L2 normalization, and all train/test table counts complete. Launch resources were **14.33 GB system RAM in use**, **43°C GPU**, **21.61 GB free on C:**, and **8.07 GB free on E:**. The E5 run is CPU-only; no supported CPU-package temperature sensor is available.
+- The baseline launcher had produced a blank exit marker despite the complete checkpoints, clean stderr, final OOF result, and normal monitor end. The marker was repaired to `0` from that completion evidence, and the local launcher now waits on the process object and records an explicit exit code for the E5 run.
+- E5 metrics and the paired delta are pending. No test inference, submission staging, leaderboard upload, or Git upload of datasets, embeddings, checkpoints, or runtime logs has occurred.
+
+## Related code
+
+- `utils/replay_oof_threshold_splits.py` reconstructs and verifies Run 1 OOF rows from saved feature checkpoints, replays grouped OOF probabilities, and calculates full-grid plus source/singleton threshold analyses. France-specific thresholds remain unmeasured because the Run 1 training sample has no France S1 rows.
+
+This snapshot supersedes the older E5-generation status below; prior entries remain as history.
+
 # Current status — 2026-09-27 18:01 IST
 
 ## E5 output-contract audit — 2026-09-27 18:01 IST
